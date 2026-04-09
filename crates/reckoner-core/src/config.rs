@@ -1,0 +1,193 @@
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Config {
+    #[serde(default)]
+    pub general: GeneralConfig,
+    #[serde(default)]
+    pub container: ContainerConfig,
+    #[serde(default)]
+    pub git: GitConfig,
+    #[serde(default)]
+    pub pas: PasConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GeneralConfig {
+    #[serde(default = "default_repos_dir")]
+    pub repos_dir: PathBuf,
+    #[serde(default = "default_worktrees_dir")]
+    pub worktrees_dir: PathBuf,
+    #[serde(default = "default_logs_dir")]
+    pub logs_dir: PathBuf,
+    #[serde(default = "default_db_path")]
+    pub db_path: PathBuf,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ContainerConfig {
+    #[serde(default = "default_runtime")]
+    pub runtime: String,
+    #[serde(default = "default_base_image")]
+    pub base_image: String,
+    #[serde(default = "default_network")]
+    pub network: String,
+    #[serde(default = "default_memory")]
+    pub default_memory: String,
+    #[serde(default = "default_cpus")]
+    pub default_cpus: u32,
+    #[serde(default = "default_pids_limit")]
+    pub pids_limit: u64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GitConfig {
+    #[serde(default = "default_true")]
+    pub auto_pr: bool,
+    #[serde(default = "default_pr_prefix")]
+    pub pr_prefix: String,
+    #[serde(default = "default_commit_author")]
+    pub commit_author: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PasConfig {
+    #[serde(default = "default_pas_binary")]
+    pub binary: String,
+    #[serde(default = "default_model")]
+    pub default_model: String,
+    #[serde(default = "default_budget")]
+    pub default_max_budget_usd: f64,
+    #[serde(default = "default_max_steps")]
+    pub default_max_steps: u64,
+}
+
+fn reckoner_dir() -> PathBuf {
+    dirs::home_dir()
+        .expect("HOME not set")
+        .join(".reckoner")
+}
+
+fn default_repos_dir() -> PathBuf { reckoner_dir().join("repos") }
+fn default_worktrees_dir() -> PathBuf { reckoner_dir().join("worktrees") }
+fn default_logs_dir() -> PathBuf { reckoner_dir().join("logs") }
+fn default_db_path() -> PathBuf { reckoner_dir().join("reckoner.db") }
+fn default_runtime() -> String { "orbstack".into() }
+fn default_base_image() -> String { "reckoner-base:latest".into() }
+fn default_network() -> String { "reckoner-net".into() }
+fn default_memory() -> String { "4g".into() }
+fn default_cpus() -> u32 { 4 }
+fn default_pids_limit() -> u64 { 512 }
+fn default_true() -> bool { true }
+fn default_pr_prefix() -> String { "reckoner".into() }
+fn default_commit_author() -> String { "Reckoner <reckoner@local>".into() }
+fn default_pas_binary() -> String { "pas".into() }
+fn default_model() -> String { "sonnet".into() }
+fn default_budget() -> f64 { 10.0 }
+fn default_max_steps() -> u64 { 200 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            general: GeneralConfig::default(),
+            container: ContainerConfig::default(),
+            git: GitConfig::default(),
+            pas: PasConfig::default(),
+        }
+    }
+}
+
+impl Default for GeneralConfig {
+    fn default() -> Self {
+        Self {
+            repos_dir: default_repos_dir(),
+            worktrees_dir: default_worktrees_dir(),
+            logs_dir: default_logs_dir(),
+            db_path: default_db_path(),
+        }
+    }
+}
+
+impl Default for ContainerConfig {
+    fn default() -> Self {
+        Self {
+            runtime: default_runtime(),
+            base_image: default_base_image(),
+            network: default_network(),
+            default_memory: default_memory(),
+            default_cpus: default_cpus(),
+            pids_limit: default_pids_limit(),
+        }
+    }
+}
+
+impl Default for GitConfig {
+    fn default() -> Self {
+        Self {
+            auto_pr: true,
+            pr_prefix: default_pr_prefix(),
+            commit_author: default_commit_author(),
+        }
+    }
+}
+
+impl Default for PasConfig {
+    fn default() -> Self {
+        Self {
+            binary: default_pas_binary(),
+            default_model: default_model(),
+            default_max_budget_usd: default_budget(),
+            default_max_steps: default_max_steps(),
+        }
+    }
+}
+
+impl Config {
+    pub fn load(path: &Path) -> anyhow::Result<Self> {
+        if path.exists() {
+            let contents = std::fs::read_to_string(path)?;
+            Ok(toml::from_str(&contents)?)
+        } else {
+            Ok(Config::default())
+        }
+    }
+
+    pub fn config_path() -> PathBuf {
+        reckoner_dir().join("config.toml")
+    }
+
+    pub fn ensure_dirs(&self) -> anyhow::Result<()> {
+        std::fs::create_dir_all(&self.general.repos_dir)?;
+        std::fs::create_dir_all(&self.general.worktrees_dir)?;
+        std::fs::create_dir_all(&self.general.logs_dir)?;
+        if let Some(parent) = self.general.db_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_has_sane_values() {
+        let cfg = Config::default();
+        assert!(cfg.general.repos_dir.ends_with(".reckoner/repos"));
+        assert_eq!(cfg.container.default_cpus, 4);
+        assert_eq!(cfg.pas.default_model, "sonnet");
+    }
+
+    #[test]
+    fn parses_minimal_toml() {
+        let toml_str = r#"
+[pas]
+default_model = "opus"
+"#;
+        let cfg: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.pas.default_model, "opus");
+        assert_eq!(cfg.container.default_cpus, 4); // default preserved
+    }
+}

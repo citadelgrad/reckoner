@@ -1,0 +1,20 @@
+[package]
+name = "reckoner-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "reck"
+path = "src/main.rs"
+
+[dependencies]
+reckoner-core = { path = "../reckoner-core" }
+clap = { version = "4", features = ["derive"] }
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde_json.workspace = true
+toml = "0.8"
+chrono.workspace = true
