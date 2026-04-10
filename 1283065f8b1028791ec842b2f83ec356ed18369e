@@ -1,0 +1,23 @@
+crates/reckoner-core/src/task.rs
+  2a4a1b5422717264 2,34-38,51,55-56,65,67,76,80,93,101,105,109,112,115-116,120,124,126-127,129-130,133-134,145-204,207-212,215-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "1283065f8b1028791ec842b2f83ec356ed18369e",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 112,
+      "total_deletions": 146,
+      "accepted_lines": 112,
+      "overriden_lines": 0
+    }
+  }
+}
