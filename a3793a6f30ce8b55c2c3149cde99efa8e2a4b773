@@ -1,0 +1,31 @@
+crates/reckoner-core/src/repo.rs
+  2a4a1b5422717264 106
+crates/reckoner-core/src/container.rs
+  2a4a1b5422717264 83,86,148
+infra/Dockerfile
+  2a4a1b5422717264 1-45
+crates/reckoner-core/src/task.rs
+  2a4a1b5422717264 145-147,149-152
+infra/entrypoint.sh
+  2a4a1b5422717264 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "a3793a6f30ce8b55c2c3149cde99efa8e2a4b773",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 85,
+      "total_deletions": 17,
+      "accepted_lines": 74,
+      "overriden_lines": 0
+    }
+  }
+}
