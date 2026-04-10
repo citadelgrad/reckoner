@@ -6,25 +6,6 @@ use crate::config::Config;
 use crate::db::Db;
 use crate::repo;
 
-/// Valid task status transitions.
-const VALID_TRANSITIONS: &[(&str, &[&str])] = &[
-    ("pending", &["provisioning", "failed"]),
-    ("provisioning", &["running", "failed"]),
-    ("running", &["linting", "done", "failed"]),
-    ("linting", &["pr_open", "done", "failed"]),
-    ("pr_open", &["done", "failed"]),
-    ("done", &[]),
-    ("failed", &["pending"]),
-];
-
-fn can_transition(from: &str, to: &str) -> bool {
-    VALID_TRANSITIONS
-        .iter()
-        .find(|(s, _)| *s == from)
-        .map(|(_, targets)| targets.contains(&to))
-        .unwrap_or(false)
-}
-
 /// Generate a short task ID.
 fn gen_task_id() -> String {
     let id = uuid::Uuid::new_v4();
@@ -394,21 +375,37 @@ fn fail_task(
     Ok(())
 }
 
-/// Parse a memory string like "4g" into bytes.
-fn parse_memory(s: &str) -> Option<i64> {
-    let s = s.to_lowercase();
-    if let Some(num) = s.strip_suffix('g') {
-        num.parse::<i64>().ok().map(|n| n * 1024 * 1024 * 1024)
-    } else if let Some(num) = s.strip_suffix('m') {
-        num.parse::<i64>().ok().map(|n| n * 1024 * 1024)
-    } else {
-        s.parse::<i64>().ok()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    const VALID_TRANSITIONS: &[(&str, &[&str])] = &[
+        ("pending", &["provisioning", "failed"]),
+        ("provisioning", &["running", "failed"]),
+        ("running", &["linting", "done", "failed"]),
+        ("linting", &["pr_open", "done", "failed"]),
+        ("pr_open", &["done", "failed"]),
+        ("done", &[]),
+        ("failed", &["pending"]),
+    ];
+
+    fn can_transition(from: &str, to: &str) -> bool {
+        VALID_TRANSITIONS
+            .iter()
+            .find(|(s, _)| *s == from)
+            .map(|(_, targets)| targets.contains(&to))
+            .unwrap_or(false)
+    }
+
+    /// Parse a memory string like "4g" into bytes.
+    fn parse_memory(s: &str) -> Option<i64> {
+        let s = s.to_lowercase();
+        if let Some(num) = s.strip_suffix('g') {
+            num.parse::<i64>().ok().map(|n| n * 1024 * 1024 * 1024)
+        } else if let Some(num) = s.strip_suffix('m') {
+            num.parse::<i64>().ok().map(|n| n * 1024 * 1024)
+        } else {
+            s.parse::<i64>().ok()
+        }
+    }
 
     #[test]
     fn valid_transitions_allow_forward_progress() {

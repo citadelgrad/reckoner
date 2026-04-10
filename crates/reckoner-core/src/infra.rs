@@ -178,7 +178,6 @@ pub fn infra_status() -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     // ── has_binary ───────────────────────────────────────────────────
 

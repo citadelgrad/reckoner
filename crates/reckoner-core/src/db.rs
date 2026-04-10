@@ -386,7 +386,6 @@ pub struct Task {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use tempfile::TempDir;
 
     fn temp_db() -> (TempDir, Db) {

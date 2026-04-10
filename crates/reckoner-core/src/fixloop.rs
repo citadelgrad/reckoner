@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::config::Config;
-use crate::lint::{self, LintFinding, LintReport};
+use crate::lint::{self, LintFinding};
 
 /// Result of a single fix iteration.
 #[derive(Debug)]
