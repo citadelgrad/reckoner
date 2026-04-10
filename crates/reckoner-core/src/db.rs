@@ -434,4 +434,235 @@ mod tests {
         assert_eq!(task.status, "running");
         assert!(task.started_at.is_some());
     }
+
+    // ── Repo CRUD ────────────────────────────────────────────────────
+
+    #[test]
+    fn get_repo_by_name_returns_none_for_missing() {
+        let (_dir, db) = temp_db();
+        assert!(db.get_repo_by_name("nonexistent").unwrap().is_none());
+    }
+
+    #[test]
+    fn get_repo_by_name_returns_match() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("git@github.com:u/foo.git", "foo", "/tmp/foo", "main").unwrap();
+        db.insert_repo("git@github.com:u/bar.git", "bar", "/tmp/bar", "develop").unwrap();
+
+        let repo = db.get_repo_by_name("bar").unwrap().unwrap();
+        assert_eq!(repo.name, "bar");
+        assert_eq!(repo.default_branch, "develop");
+        assert_eq!(repo.url, "git@github.com:u/bar.git");
+    }
+
+    #[test]
+    fn list_repos_ordered_by_name() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url3", "zebra", "/z", "main").unwrap();
+        db.insert_repo("url1", "alpha", "/a", "main").unwrap();
+        db.insert_repo("url2", "middle", "/m", "main").unwrap();
+
+        let repos = db.list_repos().unwrap();
+        assert_eq!(repos.len(), 3);
+        assert_eq!(repos[0].name, "alpha");
+        assert_eq!(repos[1].name, "middle");
+        assert_eq!(repos[2].name, "zebra");
+    }
+
+    #[test]
+    fn remove_repo_returns_false_for_missing() {
+        let (_dir, db) = temp_db();
+        assert!(!db.remove_repo("ghost").unwrap());
+    }
+
+    #[test]
+    fn remove_repo_deletes_and_returns_true() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "doomed", "/d", "main").unwrap();
+        assert!(db.remove_repo("doomed").unwrap());
+        assert!(db.get_repo_by_name("doomed").unwrap().is_none());
+    }
+
+    #[test]
+    fn update_repo_synced_sets_timestamp() {
+        let (_dir, db) = temp_db();
+        let id = db.insert_repo("url", "r", "/r", "main").unwrap();
+        let repo = db.get_repo_by_name("r").unwrap().unwrap();
+        assert!(repo.last_synced.is_none());
+
+        db.update_repo_synced(id).unwrap();
+        let repo = db.get_repo_by_name("r").unwrap().unwrap();
+        assert!(repo.last_synced.is_some());
+    }
+
+    #[test]
+    fn duplicate_repo_url_rejected() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("git@github.com:u/r.git", "r", "/r", "main").unwrap();
+        let err = db.insert_repo("git@github.com:u/r.git", "r2", "/r2", "main");
+        assert!(err.is_err()); // UNIQUE constraint on url
+    }
+
+    // ── Task CRUD ────────────────────────────────────────────────────
+
+    #[test]
+    fn get_task_returns_none_for_missing() {
+        let (_dir, db) = temp_db();
+        assert!(db.get_task("reck-nonexistent").unwrap().is_none());
+    }
+
+    #[test]
+    fn insert_task_sets_defaults() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-abc", 1, "do something").unwrap();
+
+        let task = db.get_task("reck-abc").unwrap().unwrap();
+        assert_eq!(task.status, "pending");
+        assert_eq!(task.prompt, "do something");
+        assert_eq!(task.attempt_count, 1);
+        assert_eq!(task.total_cost_usd, 0.0);
+        assert!(task.container_id.is_none());
+        assert!(task.branch_name.is_none());
+        assert!(task.pr_url.is_none());
+        assert!(task.started_at.is_none());
+        assert!(task.completed_at.is_none());
+    }
+
+    #[test]
+    fn list_active_tasks_excludes_done_and_failed() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+
+        db.insert_task("reck-1", 1, "active task").unwrap();
+        db.insert_task("reck-2", 1, "done task").unwrap();
+        db.insert_task("reck-3", 1, "failed task").unwrap();
+        db.insert_task("reck-4", 1, "running task").unwrap();
+
+        db.transition_task("reck-2", "pending", "provisioning", None).unwrap();
+        db.transition_task("reck-2", "provisioning", "running", None).unwrap();
+        db.transition_task("reck-2", "running", "done", None).unwrap();
+
+        db.transition_task("reck-3", "pending", "failed", None).unwrap();
+
+        db.transition_task("reck-4", "pending", "provisioning", None).unwrap();
+        db.transition_task("reck-4", "provisioning", "running", None).unwrap();
+
+        let active = db.list_active_tasks().unwrap();
+        assert_eq!(active.len(), 2); // reck-1 (pending) + reck-4 (running)
+        let ids: Vec<&str> = active.iter().map(|t| t.id.as_str()).collect();
+        assert!(ids.contains(&"reck-1"));
+        assert!(ids.contains(&"reck-4"));
+    }
+
+    #[test]
+    fn set_task_metadata_fields() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-m", 1, "test metadata").unwrap();
+
+        db.set_task_container("reck-m", "abc123").unwrap();
+        db.set_task_branch("reck-m", "reckoner/feat/reck-m-test").unwrap();
+        db.set_task_pr("reck-m", "https://github.com/u/r/pull/1").unwrap();
+
+        let task = db.get_task("reck-m").unwrap().unwrap();
+        assert_eq!(task.container_id.as_deref(), Some("abc123"));
+        assert_eq!(task.branch_name.as_deref(), Some("reckoner/feat/reck-m-test"));
+        assert_eq!(task.pr_url.as_deref(), Some("https://github.com/u/r/pull/1"));
+    }
+
+    #[test]
+    fn set_task_error_records_stage_and_message() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-e", 1, "will fail").unwrap();
+
+        db.set_task_error("reck-e", "running", "connection refused").unwrap();
+
+        let task = db.get_task("reck-e").unwrap().unwrap();
+        assert_eq!(task.failed_stage.as_deref(), Some("running"));
+        assert_eq!(task.error_message.as_deref(), Some("connection refused"));
+    }
+
+    #[test]
+    fn transition_records_audit_trail() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-a", 1, "audit test").unwrap();
+
+        db.transition_task("reck-a", "pending", "provisioning", Some("starting")).unwrap();
+        db.transition_task("reck-a", "provisioning", "running", None).unwrap();
+
+        // Check task_transitions table directly
+        let count: i64 = db.conn().query_row(
+            "SELECT COUNT(*) FROM task_transitions WHERE task_id = 'reck-a'",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn completed_at_set_on_done() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-d", 1, "complete me").unwrap();
+
+        db.transition_task("reck-d", "pending", "provisioning", None).unwrap();
+        db.transition_task("reck-d", "provisioning", "running", None).unwrap();
+        db.transition_task("reck-d", "running", "done", None).unwrap();
+
+        let task = db.get_task("reck-d").unwrap().unwrap();
+        assert_eq!(task.status, "done");
+        assert!(task.completed_at.is_some());
+    }
+
+    #[test]
+    fn completed_at_set_on_failed() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-f", 1, "fail me").unwrap();
+
+        db.transition_task("reck-f", "pending", "failed", Some("boom")).unwrap();
+
+        let task = db.get_task("reck-f").unwrap().unwrap();
+        assert_eq!(task.status, "failed");
+        assert!(task.completed_at.is_some());
+    }
+
+    // ── Run CRUD ─────────────────────────────────────────────────────
+
+    #[test]
+    fn insert_and_finish_run() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-run", 1, "run test").unwrap();
+
+        let run_id = db.insert_run("reck-run", "pipeline.dot", "/logs/reck-run").unwrap();
+        assert!(run_id > 0);
+
+        db.finish_run(run_id, "success", 1.23, 45).unwrap();
+
+        // Verify via direct query
+        let (status, cost, dur): (String, f64, i64) = db.conn().query_row(
+            "SELECT status, cost_usd, duration_secs FROM runs WHERE id = ?1",
+            [run_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).unwrap();
+        assert_eq!(status, "success");
+        assert!((cost - 1.23).abs() < 0.001);
+        assert_eq!(dur, 45);
+    }
+
+    // ── DB file permissions ──────────────────────────────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn db_file_has_0600_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, _db) = temp_db();
+        let db_path = dir.path().join("test.db");
+        let mode = std::fs::metadata(&db_path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
 }

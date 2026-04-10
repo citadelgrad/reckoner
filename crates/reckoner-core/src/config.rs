@@ -262,4 +262,79 @@ default_model = "opus"
         assert_eq!(cfg.pas.default_model, "opus");
         assert_eq!(cfg.container.default_cpus, 4); // default preserved
     }
+
+    #[test]
+    fn default_linter_config() {
+        let cfg = Config::default();
+        assert!(cfg.linters_enabled());
+        assert_eq!(cfg.linter_max_lines(), 500);
+        assert_eq!(cfg.linters.max_fix_iterations, 3);
+        assert!(!cfg.linters.fail_on_warning);
+    }
+
+    #[test]
+    fn default_toolchain_has_python_rust_typescript() {
+        let cfg = Config::default();
+        let defaults = cfg.toolchain_defaults();
+        assert!(defaults.contains_key("python"));
+        assert!(defaults.contains_key("rust"));
+        assert!(defaults.contains_key("typescript"));
+
+        let py = &defaults["python"];
+        assert!(py.lint.as_ref().unwrap().contains("ruff"));
+        assert!(py.typecheck.as_ref().unwrap().contains("ty"));
+
+        let ts = &defaults["typescript"];
+        assert!(ts.lint.as_ref().unwrap().contains("biome"));
+    }
+
+    #[test]
+    fn parses_linter_overrides() {
+        let toml_str = r#"
+[linters]
+enabled = false
+max_file_lines = 1000
+"#;
+        let cfg: Config = toml::from_str(toml_str).unwrap();
+        assert!(!cfg.linters_enabled());
+        assert_eq!(cfg.linter_max_lines(), 1000);
+    }
+
+    #[test]
+    fn load_returns_defaults_for_missing_file() {
+        let path = std::path::Path::new("/nonexistent/config.toml");
+        let cfg = Config::load(path).unwrap();
+        assert_eq!(cfg.pas.default_model, "sonnet");
+    }
+
+    #[test]
+    fn load_reads_file() {
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[pas]\ndefault_model = \"haiku\"\n").unwrap();
+
+        let cfg = Config::load(&path).unwrap();
+        assert_eq!(cfg.pas.default_model, "haiku");
+    }
+
+    #[test]
+    fn ensure_dirs_creates_directories() {
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let cfg = Config {
+            general: GeneralConfig {
+                repos_dir: dir.path().join("repos"),
+                worktrees_dir: dir.path().join("wt"),
+                logs_dir: dir.path().join("logs"),
+                db_path: dir.path().join("db/reckoner.db"),
+            },
+            ..Config::default()
+        };
+        cfg.ensure_dirs().unwrap();
+        assert!(dir.path().join("repos").exists());
+        assert!(dir.path().join("wt").exists());
+        assert!(dir.path().join("logs").exists());
+        assert!(dir.path().join("db").exists());
+    }
 }
