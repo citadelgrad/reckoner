@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::Instant;
 
 use crate::config::Config;
-use crate::container::{ContainerSpec, DockerRuntime};
 use crate::db::Db;
 use crate::repo;
 
@@ -31,7 +31,11 @@ fn gen_task_id() -> String {
     format!("reck-{}", &id.to_string()[..8])
 }
 
-/// Run a complete task lifecycle: provision -> run PAS -> collect -> teardown.
+/// Run a complete task lifecycle.
+///
+/// Local mode: runs claude/pas on the HOST (uses Claude subscription auth).
+/// The worktree provides file isolation. Containers are used later for
+/// repo-specific tools (tests, linters, build) in Phase 5.
 pub async fn run_task(
     config: &Config,
     db_path: &Path,
@@ -44,12 +48,12 @@ pub async fn run_task(
 
     // Look up the repo
     let db = Db::open(db_path)?;
-    let repo = db
+    let r = db
         .get_repo_by_name(repo_name)?
         .ok_or_else(|| anyhow::anyhow!("repo '{}' not found. Run `reck add` first.", repo_name))?;
 
-    db.insert_task(&task_id, repo.id, prompt)?;
-    drop(db); // release connection during long-running operations
+    db.insert_task(&task_id, r.id, prompt)?;
+    drop(db);
 
     // ── 1. PROVISION ─────────────────────────────────────────────────
 
@@ -58,33 +62,26 @@ pub async fn run_task(
         db.transition_task(&task_id, "pending", "provisioning", None)?;
     }
 
-    // Fetch latest
-    let bare_path = PathBuf::from(&repo.local_path);
+    let bare_path = PathBuf::from(&r.local_path);
     if let Err(e) = repo::fetch(&bare_path) {
-        let db = Db::open(db_path)?;
-        db.set_task_error(&task_id, "provisioning", &e.to_string())?;
-        db.transition_task(&task_id, "provisioning", "failed", Some(&e.to_string()))?;
+        fail_task(db_path, &task_id, "provisioning", &e)?;
         return Err(e);
     }
 
-    // Create worktree
     let branch_name = repo::task_branch_name(&config.git.pr_prefix, &task_id, prompt);
     let worktree_path = match repo::worktree_add(
         &bare_path,
         &config.general.worktrees_dir,
         &branch_name,
-        &repo.default_branch,
+        &r.default_branch,
     ) {
         Ok(p) => p,
         Err(e) => {
-            let db = Db::open(db_path)?;
-            db.set_task_error(&task_id, "provisioning", &e.to_string())?;
-            db.transition_task(&task_id, "provisioning", "failed", Some(&e.to_string()))?;
+            fail_task(db_path, &task_id, "provisioning", &e)?;
             return Err(e);
         }
     };
 
-    // Create logs directory
     let logs_path = config.general.logs_dir.join(&task_id);
     std::fs::create_dir_all(&logs_path)?;
 
@@ -93,47 +90,7 @@ pub async fn run_task(
         db.set_task_branch(&task_id, &branch_name)?;
     }
 
-    // Create container
-    let runtime = DockerRuntime::new()?;
-    let container_name = format!("reck-{}", &task_id);
-    let spec = ContainerSpec {
-        name: container_name.clone(),
-        image: config.container.base_image.clone(),
-        worktree_path: worktree_path.to_string_lossy().into(),
-        logs_path: logs_path.to_string_lossy().into(),
-        env: collect_env_vars(),
-        memory_bytes: parse_memory(&config.container.default_memory),
-        cpu_count: Some(config.container.default_cpus as i64),
-        pids_limit: Some(config.container.pids_limit as i64),
-        network: Some(config.container.network.clone()),
-    };
-
-    let container_id = match runtime.create(&spec).await {
-        Ok(id) => id,
-        Err(e) => {
-            let _ = repo::worktree_remove(&bare_path, &worktree_path);
-            let db = Db::open(db_path)?;
-            db.set_task_error(&task_id, "provisioning", &e.to_string())?;
-            db.transition_task(&task_id, "provisioning", "failed", Some(&e.to_string()))?;
-            return Err(e.into());
-        }
-    };
-
-    if let Err(e) = runtime.start(&container_id).await {
-        let _ = runtime.remove(&container_id).await;
-        let _ = repo::worktree_remove(&bare_path, &worktree_path);
-        let db = Db::open(db_path)?;
-        db.set_task_error(&task_id, "provisioning", &e.to_string())?;
-        db.transition_task(&task_id, "provisioning", "failed", Some(&e.to_string()))?;
-        return Err(e.into());
-    }
-
-    {
-        let db = Db::open(db_path)?;
-        db.set_task_container(&task_id, &container_id.0)?;
-    }
-
-    // ── 2. RUN PAS ───────────────────────────────────────────────────
+    // ── 2. RUN (on host, using Claude subscription) ──────────────────
 
     {
         let db = Db::open(db_path)?;
@@ -141,98 +98,41 @@ pub async fn run_task(
     }
 
     let start_time = Instant::now();
-
-    // Brief pause to let container entrypoint finish
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-    // Ensure .reckoner dir exists inside container
-    match runtime.run_command(&container_id, &["mkdir", "-p", "/workspace/.reckoner"]).await {
-        Ok(r) => tracing::debug!(exit_code = r.exit_code, "mkdir inside container"),
-        Err(e) => tracing::warn!(error = %e, "failed to mkdir inside container — container may have exited"),
-    }
-
-    let result_path = "/workspace/.reckoner/result.json";
-    let budget_str = config.pas.default_max_budget_usd.to_string();
-
-    let cmd: Vec<&str> = if let Some(dot_file) = pipeline {
-        vec![
-            &config.pas.binary,
-            "run",
-            dot_file,
-            "--workdir",
-            "/workspace",
-            "--output-result",
-            result_path,
-            "--max-budget-usd",
-            &budget_str,
-        ]
-    } else {
-        // No pipeline: use claude directly with the prompt
-        vec![
-            "claude",
-            "-p",
-            prompt,
-            "--output-format",
-            "json",
-            "--model",
-            &config.pas.default_model,
-            "--no-session-persistence",
-        ]
-    };
-
-    tracing::info!(cmd = ?cmd, "running inside container");
-    let run_result = runtime.run_command(&container_id, &cmd).await;
+    let run_result = run_on_host(config, prompt, pipeline, &worktree_path, &logs_path);
     let duration = start_time.elapsed().as_secs() as i64;
 
-    // Save stdout/stderr to log files
-    if let Ok(ref result) = run_result {
-        let _ = std::fs::write(logs_path.join("pas-stdout.jsonl"), &result.stdout);
-        let _ = std::fs::write(logs_path.join("pas-stderr.log"), &result.stderr);
-    }
-
     match &run_result {
-        Ok(result) => {
+        Ok(exit_code) => {
             let db = Db::open(db_path)?;
             let run_id = db.insert_run(
                 &task_id,
-                pipeline.unwrap_or("generated"),
+                pipeline.unwrap_or("direct"),
                 &logs_path.to_string_lossy(),
             )?;
-            let status = if result.exit_code == 0 {
-                "success"
-            } else {
-                "partial"
-            };
+            let status = if *exit_code == 0 { "success" } else { "partial" };
             db.finish_run(run_id, status, 0.0, duration)?;
 
-            if result.exit_code != 0 {
-                tracing::warn!(
-                    exit_code = result.exit_code,
-                    "PAS exited with non-zero code"
-                );
+            if *exit_code != 0 {
+                tracing::warn!(exit_code, "claude/pas exited with non-zero code");
             }
         }
         Err(e) => {
-            let db = Db::open(db_path)?;
-            db.set_task_error(&task_id, "running", &e.to_string())?;
-            db.transition_task(&task_id, "running", "failed", Some(&e.to_string()))?;
+            fail_task(db_path, &task_id, "running", e)?;
         }
     }
 
-    // ── 3. COLLECT & TEARDOWN ────────────────────────────────────────
+    // ── 3. CLEANUP ───────────────────────────────────────────────────
 
-    let container_logs = runtime.collect_logs(&container_id).await.unwrap_or_default();
-    let _ = std::fs::write(logs_path.join("container.jsonl"), &container_logs);
-
-    let _ = runtime.stop(&container_id).await;
-    let _ = runtime.remove(&container_id).await;
-    let _ = repo::worktree_remove(&bare_path, &worktree_path);
-
+    // Keep worktree if task succeeded (for PR phase later)
+    // Remove worktree on failure
     if run_result.is_err() {
-        return Err(run_result.unwrap_err().into());
+        let _ = repo::worktree_remove(&bare_path, &worktree_path);
+        return Err(run_result.unwrap_err());
     }
 
-    // Mark done
+    // For now, clean up worktree (PR integration is Phase 4)
+    let _ = repo::worktree_remove(&bare_path, &worktree_path);
+
     {
         let db = Db::open(db_path)?;
         db.transition_task(&task_id, "running", "done", None)?;
@@ -242,25 +142,91 @@ pub async fn run_task(
     Ok(task_id)
 }
 
-/// Collect environment variables to pass into the container.
-fn collect_env_vars() -> Vec<String> {
-    let mut env = vec![
-        "GIT_TERMINAL_PROMPT=0".into(),
-        "TERM=xterm-256color".into(),
-    ];
+/// Run claude or pas on the HOST against the worktree.
+/// This uses the local Claude subscription — no API key needed.
+fn run_on_host(
+    config: &Config,
+    prompt: &str,
+    pipeline: Option<&str>,
+    worktree_path: &Path,
+    logs_path: &Path,
+) -> anyhow::Result<i32> {
+    let (program, args) = if let Some(dot_file) = pipeline {
+        let budget = config.pas.default_max_budget_usd.to_string();
+        let max_steps = config.pas.default_max_steps.to_string();
+        (
+            config.pas.binary.clone(),
+            vec![
+                "run".into(),
+                dot_file.into(),
+                "--workdir".into(),
+                worktree_path.to_string_lossy().into(),
+                "--max-budget-usd".into(),
+                budget,
+                "--max-steps".into(),
+                max_steps,
+            ],
+        )
+    } else {
+        (
+            "claude".into(),
+            vec![
+                "-p".into(),
+                prompt.into(),
+                "--output-format".into(),
+                "json".into(),
+                "--model".into(),
+                config.pas.default_model.clone(),
+                "--no-session-persistence".into(),
+                "--dangerously-skip-permissions".into(),
+            ],
+        )
+    };
 
-    for key in &[
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY",
-        "GEMINI_API_KEY",
-        "GH_TOKEN",
-    ] {
-        if let Ok(val) = std::env::var(key) {
-            env.push(format!("{}={}", key, val));
-        }
+    tracing::info!(program, args = ?args, workdir = %worktree_path.display(), "running on host");
+
+    let output = Command::new(&program)
+        .args(&args)
+        .current_dir(worktree_path)
+        .output()?;
+
+    // Save stdout/stderr to log files
+    let _ = std::fs::write(logs_path.join("stdout.jsonl"), &output.stdout);
+    let _ = std::fs::write(logs_path.join("stderr.log"), &output.stderr);
+
+    let exit_code = output.status.code().unwrap_or(-1);
+
+    if !output.stdout.is_empty() {
+        let preview: String = String::from_utf8_lossy(&output.stdout)
+            .chars()
+            .take(200)
+            .collect();
+        tracing::debug!(preview, "stdout preview");
     }
 
-    env
+    if exit_code != 0 {
+        let stderr_preview: String = String::from_utf8_lossy(&output.stderr)
+            .chars()
+            .take(500)
+            .collect();
+        tracing::warn!(exit_code, stderr = %stderr_preview, "non-zero exit");
+    }
+
+    Ok(exit_code)
+}
+
+/// Helper to record a failure and transition to failed state.
+fn fail_task(db_path: &Path, task_id: &str, stage: &str, err: &anyhow::Error) -> anyhow::Result<()> {
+    let db = Db::open(db_path)?;
+    db.set_task_error(task_id, stage, &err.to_string())?;
+    // Try the most likely transition; if it fails (wrong from-state), that's ok
+    let from = match stage {
+        "provisioning" => "provisioning",
+        "running" => "running",
+        _ => stage,
+    };
+    let _ = db.transition_task(task_id, from, "failed", Some(&err.to_string()));
+    Ok(())
 }
 
 /// Parse a memory string like "4g" into bytes.
