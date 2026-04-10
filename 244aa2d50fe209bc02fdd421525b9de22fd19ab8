@@ -1,0 +1,27 @@
+crates/reckoner-core/src/lib.rs
+  2a4a1b5422717264 5
+crates/reckoner-cli/src/main.rs
+  2a4a1b5422717264 76-79,145,147-158,160-165
+crates/reckoner-core/src/logs.rs
+  2a4a1b5422717264 1-336
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "244aa2d50fe209bc02fdd421525b9de22fd19ab8",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 360,
+      "total_deletions": 18,
+      "accepted_lines": 360,
+      "overriden_lines": 0
+    }
+  }
+}
