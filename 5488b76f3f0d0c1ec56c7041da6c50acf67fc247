@@ -1,0 +1,27 @@
+README.md
+  9b9090c0ba2954ea 7-18,34,39,41,47-49,58,67,74,94-98
+docs/task-lifecycle.svg
+  9b9090c0ba2954ea 1-149
+docs/task-isolation.svg
+  9b9090c0ba2954ea 1-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "5488b76f3f0d0c1ec56c7041da6c50acf67fc247",
+  "prompts": {
+    "9b9090c0ba2954ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93c0612a-fb28-4d15-807b-853f797eabce",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 325,
+      "total_deletions": 20,
+      "accepted_lines": 325,
+      "overriden_lines": 0
+    }
+  }
+}
