@@ -80,9 +80,10 @@ impl DockerRuntime {
 
         let config = ContainerConfig {
             image: Some(spec.image.clone()),
+            cmd: Some(vec!["sleep".into(), "infinity".into()]),
             env: Some(spec.env.clone()),
             working_dir: Some("/workspace".into()),
-            user: Some("1000:1000".into()),
+            user: Some("1001:1001".into()),
             host_config: Some(host_config),
             ..Default::default()
         };
@@ -144,7 +145,7 @@ impl DockerRuntime {
                     attach_stdout: Some(true),
                     attach_stderr: Some(true),
                     working_dir: Some("/workspace".into()),
-                    user: Some("1000:1000".into()),
+                    user: Some("1001:1001".into()),
                     ..Default::default()
                 },
             )

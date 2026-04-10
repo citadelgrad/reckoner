@@ -103,7 +103,7 @@ pub fn worktree_add(
             &worktree_path.to_string_lossy(),
             "-b",
             branch_name,
-            &format!("origin/{}", base_branch),
+            base_branch,
         ],
     )?;
 

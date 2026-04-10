@@ -142,10 +142,14 @@ pub async fn run_task(
 
     let start_time = Instant::now();
 
+    // Brief pause to let container entrypoint finish
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
     // Ensure .reckoner dir exists inside container
-    let _ = runtime
-        .run_command(&container_id, &["mkdir", "-p", "/workspace/.reckoner"])
-        .await;
+    match runtime.run_command(&container_id, &["mkdir", "-p", "/workspace/.reckoner"]).await {
+        Ok(r) => tracing::debug!(exit_code = r.exit_code, "mkdir inside container"),
+        Err(e) => tracing::warn!(error = %e, "failed to mkdir inside container — container may have exited"),
+    }
 
     let result_path = "/workspace/.reckoner/result.json";
     let budget_str = config.pas.default_max_budget_usd.to_string();
