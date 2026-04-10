@@ -1,0 +1,39 @@
+crates/reckoner-cli/Cargo.toml
+  2a4a1b5422717264 21
+crates/reckoner-core/src/lib.rs
+  2a4a1b5422717264 4,7
+crates/reckoner-core/src/lint.rs
+  2a4a1b5422717264 1-170,172-359
+crates/reckoner-core/src/toolchain.rs
+  2a4a1b5422717264 1-2,4-236
+crates/reckoner-core/src/task.rs
+  2a4a1b5422717264 136-149,155-157,202,283-347
+crates/reckoner-cli/src/commands/lint.rs
+  2a4a1b5422717264 1-70
+crates/reckoner-cli/src/commands/mod.rs
+  2a4a1b5422717264 2
+crates/reckoner-core/src/config.rs
+  2a4a1b5422717264 4-5,16-51,128-141,144-161,167-168
+crates/reckoner-cli/src/main.rs
+  2a4a1b5422717264 78-83,134-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "5b7080ebfd3dfe89bba70af7410e6d26d862463c",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 833,
+      "total_deletions": 2,
+      "accepted_lines": 831,
+      "overriden_lines": 2
+    }
+  }
+}
