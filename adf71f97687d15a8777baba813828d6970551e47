@@ -1,0 +1,31 @@
+crates/reckoner-core/src/infra.rs
+  2a4a1b5422717264 1-262
+crates/reckoner-core/src/task.rs
+  2a4a1b5422717264 336,338-368
+crates/reckoner-cli/src/main.rs
+  2a4a1b5422717264 94-102,158-167,218,222,249-265
+crates/reckoner-core/src/lib.rs
+  2a4a1b5422717264 4-5
+crates/reckoner-core/src/fixloop.rs
+  2a4a1b5422717264 1-303
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "adf71f97687d15a8777baba813828d6970551e47",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 637,
+      "total_deletions": 8,
+      "accepted_lines": 637,
+      "overriden_lines": 0
+    }
+  }
+}
