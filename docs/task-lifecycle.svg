@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#dc2626"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="580" rx="12" fill="#0f172a"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#f1f5f9" font-size="20" font-weight="700">How Reckoner Works</text>
+  <text x="450" y="58" text-anchor="middle" fill="#94a3b8" font-size="13">Register repos once — Reckoner handles isolation, linting, and PRs</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TOP SECTION: Setup Phase                        -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="30" y="76" width="840" height="180" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6,3" filter="url(#shadow)"/>
+  <text x="450" y="98" text-anchor="middle" fill="#38bdf8" font-size="14" font-weight="600">SETUP — One Time</text>
+
+  <!-- Step 1: reck init -->
+  <rect x="55" y="112" width="230" height="80" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="170" y="133" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="600">STEP 1</text>
+  <text x="170" y="151" text-anchor="middle" fill="#e0f2fe" font-size="13" font-weight="500">Initialize</text>
+  <text x="170" y="167" text-anchor="middle" fill="#7dd3fc" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">reck init</text>
+  <text x="170" y="183" text-anchor="middle" fill="#94a3b8" font-size="10">Config + SQLite + directories</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="289" y1="152" x2="318" y2="152" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Step 2: reck add -->
+  <rect x="324" y="112" width="230" height="80" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="439" y="133" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="600">STEP 2</text>
+  <text x="439" y="151" text-anchor="middle" fill="#e0f2fe" font-size="13" font-weight="500">Register Repo</text>
+  <text x="439" y="167" text-anchor="middle" fill="#7dd3fc" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">reck add &lt;git-url&gt;</text>
+  <text x="439" y="183" text-anchor="middle" fill="#94a3b8" font-size="10">Bare treeless clone + DB entry</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="558" y1="152" x2="587" y2="152" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- Step 3: reck doctor -->
+  <rect x="593" y="112" width="230" height="80" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="708" y="133" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="600">STEP 3</text>
+  <text x="708" y="151" text-anchor="middle" fill="#e0f2fe" font-size="13" font-weight="500">Health Check</text>
+  <text x="708" y="167" text-anchor="middle" fill="#7dd3fc" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">reck doctor</text>
+  <text x="708" y="183" text-anchor="middle" fill="#94a3b8" font-size="10">git, gh, pas, docker, API keys</text>
+
+  <!-- Produces row -->
+  <text x="170" y="210" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600">PRODUCES</text>
+  <rect x="100" y="218" width="140" height="24" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="170" y="235" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">config.toml + .db</text>
+
+  <text x="439" y="210" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600">PRODUCES</text>
+  <rect x="359" y="218" width="160" height="24" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="439" y="235" text-anchor="middle" fill="#93c5fd" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">repos/&lt;name&gt;.git</text>
+
+  <text x="708" y="210" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600">VALIDATES</text>
+  <rect x="638" y="218" width="140" height="24" rx="5" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="708" y="235" text-anchor="middle" fill="#86efac" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">all checks ✓</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- Arrow from setup to execution                   -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <line x1="450" y1="260" x2="450" y2="294" stroke="#16a34a" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+  <text x="582" y="280" fill="#4ade80" font-size="11" font-weight="600" font-family="'SF Mono', 'Fira Code', monospace">reck task my-project "add auth"</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- BOTTOM SECTION: Task Engine                     -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="30" y="300" width="840" height="220" rx="10" fill="#1e293b" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="6,3" filter="url(#shadow)"/>
+  <text x="450" y="322" text-anchor="middle" fill="#a78bfa" font-size="14" font-weight="600">TASK ENGINE — Fully Automated</text>
+
+  <!-- Provision -->
+  <rect x="55" y="340" width="165" height="60" rx="6" fill="#164e63" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="137" y="359" text-anchor="middle" fill="#67e8f9" font-size="10" font-weight="600">PROVISION</text>
+  <text x="137" y="376" text-anchor="middle" fill="#e0f2fe" font-size="11">Fetch + worktree</text>
+  <text x="137" y="391" text-anchor="middle" fill="#7dd3fc" font-size="9">isolated branch per task</text>
+
+  <!-- Arrow -->
+  <line x1="224" y1="370" x2="249" y2="370" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Execute -->
+  <rect x="255" y="340" width="165" height="60" rx="6" fill="#312e81" stroke="#6366f1" stroke-width="1"/>
+  <text x="337" y="359" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600">EXECUTE</text>
+  <text x="337" y="376" text-anchor="middle" fill="#e0e7ff" font-size="11">Claude / PAS</text>
+  <text x="337" y="391" text-anchor="middle" fill="#a5b4fc" font-size="9">full agent loop in worktree</text>
+
+  <!-- Arrow -->
+  <line x1="424" y1="370" x2="449" y2="370" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Verify -->
+  <rect x="455" y="340" width="165" height="60" rx="6" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="537" y="359" text-anchor="middle" fill="#86efac" font-size="10" font-weight="600">VERIFY</text>
+  <text x="537" y="376" text-anchor="middle" fill="#dcfce7" font-size="11">Lint + fix loop</text>
+  <text x="537" y="391" text-anchor="middle" fill="#4ade80" font-size="9">toolchain + arch linters</text>
+
+  <!-- Arrow -->
+  <line x1="624" y1="370" x2="649" y2="370" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- Ship -->
+  <rect x="655" y="340" width="165" height="60" rx="6" fill="#1a2332" stroke="#334155" stroke-width="1"/>
+  <text x="737" y="359" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">SHIP</text>
+  <text x="737" y="376" text-anchor="middle" fill="#e2e8f0" font-size="11">Commit → Push → PR</text>
+  <text x="737" y="391" text-anchor="middle" fill="#64748b" font-size="9">teardown worktree after</text>
+
+  <!-- Fix loop arrow (verify back to execute) -->
+  <path d="M 455 403 L 420 428 L 310 428 L 310 404" stroke="#dc2626" stroke-width="1.5" fill="none" marker-end="url(#arrow-red)" stroke-dasharray="5,3"/>
+  <text x="375" y="443" text-anchor="middle" fill="#f87171" font-size="10">lint failures → retry with fix prompt</text>
+
+  <!-- Detail annotations -->
+  <text x="137" y="468" text-anchor="middle" fill="#475569" font-size="9">git fetch +</text>
+  <text x="137" y="480" text-anchor="middle" fill="#475569" font-size="9">worktree add</text>
+
+  <text x="337" y="468" text-anchor="middle" fill="#475569" font-size="9">claude -p or</text>
+  <text x="337" y="480" text-anchor="middle" fill="#475569" font-size="9">pas run</text>
+
+  <text x="537" y="468" text-anchor="middle" fill="#475569" font-size="9">clippy, ruff, biome</text>
+  <text x="537" y="480" text-anchor="middle" fill="#475569" font-size="9">+ file size checks</text>
+
+  <text x="737" y="468" text-anchor="middle" fill="#475569" font-size="9">gh pr create</text>
+  <text x="737" y="480" text-anchor="middle" fill="#475569" font-size="9">+ log preservation</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- OUTPUT bar                                      -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <rect x="30" y="530" width="840" height="40" rx="8" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="450" y="548" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="600">OUTPUT</text>
+  <text x="450" y="563" text-anchor="middle" fill="#86efac" font-size="11">JSONL logs  ·  SQLite task tracking  ·  PR URL  ·  Clean worktree teardown</text>
+
+  <!-- Arrow from engine to output -->
+  <line x1="450" y1="524" x2="450" y2="527" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow-green)"/>
+</svg>

@@ -4,6 +4,18 @@ A software factory that wraps [PAS](https://github.com/citadelgrad/pascals-discr
 
 **Name origin:** Pascal's mechanical calculator was called "the Reckoner." Reckoner is the machine; PAS is the engine inside it.
 
+<p align="center">
+  <img src="docs/task-lifecycle.svg" alt="How Reckoner Works" width="800"/>
+</p>
+
+### How task isolation works
+
+Reckoner never checks out code into the bare clone. Each task gets its own git worktree with a dedicated branch, sharing the bare clone's object store. A 2GB repo is stored once — not duplicated per task. Multiple tasks run concurrently against the same repo without conflicts, and worktrees are torn down after completion while logs are preserved forever.
+
+<p align="center">
+  <img src="docs/task-isolation.svg" alt="Concurrent Task Isolation" width="800"/>
+</p>
+
 ## Quick Start
 
 ```sh
@@ -16,29 +28,25 @@ reck status                                        # Show active tasks
 reck logs <task-id>                                # View preserved logs
 ```
 
-## How It Works
-
-1. **`reck add`** — bare treeless clone (`--filter=blob:none`) for fast initial fetch
-2. **`reck task`** — fetches latest, creates a git worktree + branch, runs `claude -p` (or `pas run`) against the worktree, saves structured JSONL logs, cleans up
-3. **`reck status`** / **`reck logs`** — task tracking with SQLite, logs preserved on disk after worktree teardown
-
-Each task gets its own worktree and branch (`reckoner/feat/<id>-<slug>`), so multiple tasks can run concurrently against the same repo without conflicts. All worktrees share the bare clone's object store — a 2GB repo is stored once, not N times.
-
 ## Commands
 
 ```
+reck init                    Initialize (~/.reckoner/)
 reck add <git-url>           Register a repo
 reck list                    List registered repos
 reck remove <name>           Unregister a repo
 reck sync <name>             Fetch latest changes
-reck task <repo> "<prompt>"  Run a task (fetch → worktree → claude → logs → cleanup)
+reck task <repo> "<prompt>"  Run a task (fetch → worktree → claude → lint → PR → cleanup)
 reck task <repo> "<prompt>" --pipeline <file.dot>   Use a PAS pipeline
+reck lint <repo>             Run toolchain + architectural linters
 reck status                  All active tasks
 reck status <task-id>        Detailed task view
 reck logs <task-id>          View preserved logs
 reck doctor                  Health checks (git, gh, pas, docker, API keys)
 reck config                  Show configuration
-reck init                    Initialize (~/.reckoner/)
+reck schedule add/list/remove/run   Manage background pipelines (launchd)
+reck infra up/down/status    Manage observability stack (Loki + Grafana)
+reck observe                 Open Grafana dashboard
 ```
 
 ## Architecture
@@ -47,7 +55,7 @@ Two crates:
 
 | Crate | What |
 |-------|------|
-| **reckoner-core** | Config, SQLite (rusqlite), repo management (git CLI), container lifecycle (bollard), task orchestration |
+| **reckoner-core** | Config, SQLite (rusqlite), repo management (git CLI), container lifecycle (bollard), task orchestration, lint-fix loop, scheduling |
 | **reckoner-cli** | clap CLI binary (`reck`) |
 
 Key decisions:
@@ -56,13 +64,14 @@ Key decisions:
 - **Bare clones + worktrees** — shared object store, concurrent task isolation
 - **Structured JSONL logs** on disk — zero infrastructure, queryable with [`hl`](https://github.com/pamburus/hl)
 - **Host execution** for Claude/PAS — uses your Claude subscription (macOS Keychain auth), no API key needed
+- **Pluggable toolchain** — auto-detects Python (ruff/ty), TypeScript (biome), Rust (clippy/fmt) and runs lint-fix loops
 
 ## Prerequisites
 
 - [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) (`pas` on PATH)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude` on PATH, logged in)
 - Git, GitHub CLI (`gh`)
-- [OrbStack](https://orbstack.dev/) or Docker (for future container-based linting/testing)
+- [OrbStack](https://orbstack.dev/) or Docker (for container-based linting/testing)
 
 ## Configuration
 
@@ -82,6 +91,11 @@ default_max_budget_usd = 10.0
 [git]
 auto_pr = true
 pr_prefix = "reckoner"
+
+[linters]
+enabled = true
+max_fix_iterations = 3
+max_file_lines = 500
 ```
 
 ## State
@@ -90,14 +104,6 @@ pr_prefix = "reckoner"
 - **Repos:** `~/.reckoner/repos/<name>.git` (bare clones)
 - **Worktrees:** `~/.reckoner/worktrees/` (temporary, per-task)
 - **Logs:** `~/.reckoner/logs/<task-id>/` (preserved after task completion)
-
-## Roadmap
-
-- [x] Phase 1-3: Foundation, repo management, task runner
-- [ ] Phase 4: Git + PR integration (auto-commit, push, `gh pr create`)
-- [ ] Phase 5: Pluggable toolchain (ruff/ty, biome, clippy) + architectural linters
-- [ ] Phase 6: Observability (`hl` integration, optional Grafana)
-- [ ] Phase 7: Background agents (launchd scheduling, entropy GC, doc gardening)
 
 ## License
 

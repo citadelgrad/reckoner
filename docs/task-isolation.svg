@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" rx="12" fill="#0f172a"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#f1f5f9" font-size="20" font-weight="700">Concurrent Task Isolation</text>
+  <text x="450" y="58" text-anchor="middle" fill="#94a3b8" font-size="13">A 2GB repo is stored once — each task gets a lightweight worktree</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- BARE CLONE — Shared Object Store                -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="150" y="80" width="600" height="100" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="103" text-anchor="middle" fill="#fcd34d" font-size="13" font-weight="600">BARE CLONE — Shared Object Store</text>
+  <text x="450" y="123" text-anchor="middle" fill="#fef3c7" font-size="11" font-family="'SF Mono', 'Fira Code', monospace">~/.reckoner/repos/my-project.git</text>
+  <text x="450" y="143" text-anchor="middle" fill="#fde68a" font-size="10">Treeless clone (--filter=blob:none) — fast initial fetch, blobs on demand</text>
+
+  <!-- Storage callout -->
+  <rect x="680" y="87" width="60" height="30" rx="5" fill="#78350f" stroke="#fbbf24" stroke-width="1"/>
+  <text x="710" y="100" text-anchor="middle" fill="#fde68a" font-size="9" font-weight="700">×1</text>
+  <text x="710" y="112" text-anchor="middle" fill="#fcd34d" font-size="8">stored</text>
+
+  <!-- Annotation: "not ×3" -->
+  <text x="450" y="168" text-anchor="middle" fill="#475569" font-size="10" font-style="italic">3 concurrent tasks share ONE object store — no duplication</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- Three branching arrows down                     -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <line x1="250" y1="183" x2="180" y2="218" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <line x1="450" y1="183" x2="450" y2="218" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <line x1="650" y1="183" x2="720" y2="218" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- WORKTREE 1                                      -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="55" y="224" width="230" height="120" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="55" y="224" width="230" height="26" rx="8" fill="#164e63"/>
+  <rect x="55" y="240" width="230" height="10" fill="#164e63"/>
+  <text x="170" y="242" text-anchor="middle" fill="#67e8f9" font-size="11" font-weight="600">TASK reck-a1b2</text>
+
+  <text x="170" y="268" text-anchor="middle" fill="#e0f2fe" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">worktrees/reck-a1b2/</text>
+  <text x="170" y="286" text-anchor="middle" fill="#7dd3fc" font-size="10">branch: reckoner/feat/a1b2-add-auth</text>
+
+  <rect x="80" y="298" width="180" height="22" rx="4" fill="#312e81" stroke="#6366f1" stroke-width="0.5"/>
+  <text x="170" y="313" text-anchor="middle" fill="#c4b5fd" font-size="9">Claude running: "add auth"</text>
+
+  <rect x="80" y="324" width="80" height="14" rx="3" fill="#14532d"/>
+  <text x="120" y="334" text-anchor="middle" fill="#4ade80" font-size="8">running</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- WORKTREE 2                                      -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="335" y="224" width="230" height="120" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="335" y="224" width="230" height="26" rx="8" fill="#164e63"/>
+  <rect x="335" y="240" width="230" height="10" fill="#164e63"/>
+  <text x="450" y="242" text-anchor="middle" fill="#67e8f9" font-size="11" font-weight="600">TASK reck-c3d4</text>
+
+  <text x="450" y="268" text-anchor="middle" fill="#e0f2fe" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">worktrees/reck-c3d4/</text>
+  <text x="450" y="286" text-anchor="middle" fill="#7dd3fc" font-size="10">branch: reckoner/feat/c3d4-fix-perf</text>
+
+  <rect x="360" y="298" width="180" height="22" rx="4" fill="#312e81" stroke="#6366f1" stroke-width="0.5"/>
+  <text x="450" y="313" text-anchor="middle" fill="#c4b5fd" font-size="9">PAS pipeline: optimize.dot</text>
+
+  <rect x="360" y="324" width="80" height="14" rx="3" fill="#422006"/>
+  <text x="400" y="334" text-anchor="middle" fill="#fcd34d" font-size="8">linting</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- WORKTREE 3                                      -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="615" y="224" width="230" height="120" rx="8" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="615" y="224" width="230" height="26" rx="8" fill="#164e63"/>
+  <rect x="615" y="240" width="230" height="10" fill="#164e63"/>
+  <text x="730" y="242" text-anchor="middle" fill="#67e8f9" font-size="11" font-weight="600">TASK reck-e5f6</text>
+
+  <text x="730" y="268" text-anchor="middle" fill="#e0f2fe" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">worktrees/reck-e5f6/</text>
+  <text x="730" y="286" text-anchor="middle" fill="#7dd3fc" font-size="10">branch: reckoner/feat/e5f6-add-tests</text>
+
+  <rect x="640" y="298" width="180" height="22" rx="4" fill="#312e81" stroke="#6366f1" stroke-width="0.5"/>
+  <text x="730" y="313" text-anchor="middle" fill="#c4b5fd" font-size="9">Claude running: "add tests"</text>
+
+  <rect x="640" y="324" width="80" height="14" rx="3" fill="#164e63"/>
+  <text x="680" y="334" text-anchor="middle" fill="#67e8f9" font-size="8">provisioning</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- Arrows down to logs                             -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <line x1="170" y1="348" x2="170" y2="378" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="450" y1="348" x2="450" y2="378" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <line x1="730" y1="348" x2="730" y2="378" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- LOG PRESERVATION                                -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="55" y="384" width="230" height="55" rx="6" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="170" y="404" text-anchor="middle" fill="#86efac" font-size="10" font-weight="600">LOGS PRESERVED</text>
+  <text x="170" y="420" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">logs/reck-a1b2/</text>
+  <text x="170" y="434" text-anchor="middle" fill="#86efac" font-size="9">stdout.jsonl + linter.jsonl</text>
+
+  <rect x="335" y="384" width="230" height="55" rx="6" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="450" y="404" text-anchor="middle" fill="#86efac" font-size="10" font-weight="600">LOGS PRESERVED</text>
+  <text x="450" y="420" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">logs/reck-c3d4/</text>
+  <text x="450" y="434" text-anchor="middle" fill="#86efac" font-size="9">stdout.jsonl + linter.jsonl</text>
+
+  <rect x="615" y="384" width="230" height="55" rx="6" fill="#14532d" stroke="#16a34a" stroke-width="1"/>
+  <text x="730" y="404" text-anchor="middle" fill="#86efac" font-size="10" font-weight="600">LOGS PRESERVED</text>
+  <text x="730" y="420" text-anchor="middle" fill="#4ade80" font-size="10" font-family="'SF Mono', 'Fira Code', monospace">logs/reck-e5f6/</text>
+  <text x="730" y="434" text-anchor="middle" fill="#86efac" font-size="9">stdout.jsonl + linter.jsonl</text>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- Bottom annotations                             -->
+  <!-- ═══════════════════════════════════════════════ -->
+
+  <rect x="30" y="460" width="840" height="48" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+
+  <!-- Key points -->
+  <circle cx="65" cy="479" r="4" fill="#f59e0b"/>
+  <text x="78" y="483" fill="#fde68a" font-size="10">Bare clone: repo stored once, objects shared</text>
+
+  <circle cx="340" cy="479" r="4" fill="#38bdf8"/>
+  <text x="353" y="483" fill="#7dd3fc" font-size="10">Worktrees: created per task, torn down after</text>
+
+  <circle cx="620" cy="479" r="4" fill="#16a34a"/>
+  <text x="633" y="483" fill="#86efac" font-size="10">Logs: preserved on disk forever</text>
+
+  <text x="450" y="500" text-anchor="middle" fill="#475569" font-size="9" font-style="italic">All tracked in SQLite — reck status shows every task across all repos</text>
+</svg>
