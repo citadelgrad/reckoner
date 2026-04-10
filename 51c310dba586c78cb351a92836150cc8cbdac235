@@ -1,0 +1,23 @@
+README.md
+  9b9090c0ba2954ea 7,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "51c310dba586c78cb351a92836150cc8cbdac235",
+  "prompts": {
+    "9b9090c0ba2954ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93c0612a-fb28-4d15-807b-853f797eabce",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 6,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
