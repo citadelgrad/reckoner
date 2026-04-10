@@ -73,6 +73,10 @@ enum Commands {
         /// Show only lint results
         #[arg(long)]
         lint: bool,
+
+        /// Filter log lines containing this pattern
+        #[arg(long, short)]
+        filter: Option<String>,
     },
 
     /// Run toolchain + architectural linters against a repo
@@ -138,26 +142,27 @@ async fn main() -> anyhow::Result<()> {
             task_id,
             app,
             lint,
+            filter,
         } => {
-            let logs_dir = config.general.logs_dir.join(&task_id);
-            if !logs_dir.exists() {
-                anyhow::bail!("no logs found for task {}", task_id);
-            }
-
-            let file = if app {
-                "pas-stdout.jsonl"
-            } else if lint {
-                "linter.jsonl"
+            if app || lint {
+                // Show a specific log file
+                let file = if app { "stdout.jsonl" } else { "linter.jsonl" };
+                let path = config.general.logs_dir.join(&task_id).join(file);
+                if path.exists() {
+                    let lines = reckoner_core::logs::read_log_file(&path, filter.as_deref())?;
+                    for line in lines {
+                        println!("{}", line);
+                    }
+                } else {
+                    println!("No {} log found for task {}", file, task_id);
+                }
             } else {
-                "container.jsonl"
-            };
-
-            let path = logs_dir.join(file);
-            if path.exists() {
-                let content = std::fs::read_to_string(&path)?;
-                print!("{}", content);
-            } else {
-                println!("No {} log found for task {}", file, task_id);
+                // Show summary of all log files for this task
+                let summary = reckoner_core::logs::list_log_files(
+                    &config.general.logs_dir,
+                    &task_id,
+                )?;
+                print!("{}", reckoner_core::logs::format_summary(&summary));
             }
         }
         Commands::Doctor => {
