@@ -1,0 +1,33 @@
+crates/reckoner-core/src/schedule.rs
+  2a4a1b5422717264 1-391
+crates/reckoner-cli/src/commands/schedule.rs
+  2a4a1b5422717264 1-79,81-95
+crates/reckoner-core/Cargo.toml
+  2a4a1b5422717264 24
+crates/reckoner-cli/src/commands/mod.rs
+  2a4a1b5422717264 4
+crates/reckoner-core/src/lib.rs
+  2a4a1b5422717264 7
+crates/reckoner-cli/src/main.rs
+  2a4a1b5422717264 88-93,104-148,219-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "5a59cb955a2d78b7404632b64f328e2594dee37a",
+  "prompts": {
+    "2a4a1b5422717264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a783469-9c4b-4ec3-80c8-0ef9fde3d220",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 554,
+      "total_deletions": 0,
+      "accepted_lines": 553,
+      "overriden_lines": 1
+    }
+  }
+}
