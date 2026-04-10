@@ -194,7 +194,9 @@ impl Db {
     }
 
     pub fn remove_repo(&self, name: &str) -> anyhow::Result<bool> {
-        let changed = self.conn.execute("DELETE FROM repos WHERE name = ?1", [name])?;
+        let changed = self
+            .conn
+            .execute("DELETE FROM repos WHERE name = ?1", [name])?;
         Ok(changed > 0)
     }
 
@@ -208,12 +210,7 @@ impl Db {
 
     // ── Task operations ──────────────────────────────────────────────
 
-    pub fn insert_task(
-        &self,
-        id: &str,
-        repo_id: i64,
-        prompt: &str,
-    ) -> anyhow::Result<()> {
+    pub fn insert_task(&self, id: &str, repo_id: i64, prompt: &str) -> anyhow::Result<()> {
         self.conn.execute(
             "INSERT INTO tasks (id, repo_id, prompt) VALUES (?1, ?2, ?3)",
             rusqlite::params![id, repo_id, prompt],
@@ -271,12 +268,7 @@ impl Db {
         Ok(())
     }
 
-    pub fn set_task_error(
-        &self,
-        task_id: &str,
-        stage: &str,
-        message: &str,
-    ) -> anyhow::Result<()> {
+    pub fn set_task_error(&self, task_id: &str, stage: &str, message: &str) -> anyhow::Result<()> {
         self.conn.execute(
             "UPDATE tasks SET failed_stage = ?1, error_message = ?2 WHERE id = ?3",
             rusqlite::params![stage, message, task_id],
@@ -424,11 +416,20 @@ mod tests {
             .unwrap();
         db.insert_task("reck-001", 1, "fix the bug").unwrap();
 
-        assert!(db.transition_task("reck-001", "pending", "provisioning", None).unwrap());
-        assert!(db.transition_task("reck-001", "provisioning", "running", None).unwrap());
+        assert!(
+            db.transition_task("reck-001", "pending", "provisioning", None)
+                .unwrap()
+        );
+        assert!(
+            db.transition_task("reck-001", "provisioning", "running", None)
+                .unwrap()
+        );
 
         // Wrong from-state should fail
-        assert!(!db.transition_task("reck-001", "pending", "done", None).unwrap());
+        assert!(
+            !db.transition_task("reck-001", "pending", "done", None)
+                .unwrap()
+        );
 
         let task = db.get_task("reck-001").unwrap().unwrap();
         assert_eq!(task.status, "running");
@@ -446,8 +447,10 @@ mod tests {
     #[test]
     fn get_repo_by_name_returns_match() {
         let (_dir, db) = temp_db();
-        db.insert_repo("git@github.com:u/foo.git", "foo", "/tmp/foo", "main").unwrap();
-        db.insert_repo("git@github.com:u/bar.git", "bar", "/tmp/bar", "develop").unwrap();
+        db.insert_repo("git@github.com:u/foo.git", "foo", "/tmp/foo", "main")
+            .unwrap();
+        db.insert_repo("git@github.com:u/bar.git", "bar", "/tmp/bar", "develop")
+            .unwrap();
 
         let repo = db.get_repo_by_name("bar").unwrap().unwrap();
         assert_eq!(repo.name, "bar");
@@ -498,7 +501,8 @@ mod tests {
     #[test]
     fn duplicate_repo_url_rejected() {
         let (_dir, db) = temp_db();
-        db.insert_repo("git@github.com:u/r.git", "r", "/r", "main").unwrap();
+        db.insert_repo("git@github.com:u/r.git", "r", "/r", "main")
+            .unwrap();
         let err = db.insert_repo("git@github.com:u/r.git", "r2", "/r2", "main");
         assert!(err.is_err()); // UNIQUE constraint on url
     }
@@ -539,14 +543,20 @@ mod tests {
         db.insert_task("reck-3", 1, "failed task").unwrap();
         db.insert_task("reck-4", 1, "running task").unwrap();
 
-        db.transition_task("reck-2", "pending", "provisioning", None).unwrap();
-        db.transition_task("reck-2", "provisioning", "running", None).unwrap();
-        db.transition_task("reck-2", "running", "done", None).unwrap();
+        db.transition_task("reck-2", "pending", "provisioning", None)
+            .unwrap();
+        db.transition_task("reck-2", "provisioning", "running", None)
+            .unwrap();
+        db.transition_task("reck-2", "running", "done", None)
+            .unwrap();
 
-        db.transition_task("reck-3", "pending", "failed", None).unwrap();
+        db.transition_task("reck-3", "pending", "failed", None)
+            .unwrap();
 
-        db.transition_task("reck-4", "pending", "provisioning", None).unwrap();
-        db.transition_task("reck-4", "provisioning", "running", None).unwrap();
+        db.transition_task("reck-4", "pending", "provisioning", None)
+            .unwrap();
+        db.transition_task("reck-4", "provisioning", "running", None)
+            .unwrap();
 
         let active = db.list_active_tasks().unwrap();
         assert_eq!(active.len(), 2); // reck-1 (pending) + reck-4 (running)
@@ -562,13 +572,21 @@ mod tests {
         db.insert_task("reck-m", 1, "test metadata").unwrap();
 
         db.set_task_container("reck-m", "abc123").unwrap();
-        db.set_task_branch("reck-m", "reckoner/feat/reck-m-test").unwrap();
-        db.set_task_pr("reck-m", "https://github.com/u/r/pull/1").unwrap();
+        db.set_task_branch("reck-m", "reckoner/feat/reck-m-test")
+            .unwrap();
+        db.set_task_pr("reck-m", "https://github.com/u/r/pull/1")
+            .unwrap();
 
         let task = db.get_task("reck-m").unwrap().unwrap();
         assert_eq!(task.container_id.as_deref(), Some("abc123"));
-        assert_eq!(task.branch_name.as_deref(), Some("reckoner/feat/reck-m-test"));
-        assert_eq!(task.pr_url.as_deref(), Some("https://github.com/u/r/pull/1"));
+        assert_eq!(
+            task.branch_name.as_deref(),
+            Some("reckoner/feat/reck-m-test")
+        );
+        assert_eq!(
+            task.pr_url.as_deref(),
+            Some("https://github.com/u/r/pull/1")
+        );
     }
 
     #[test]
@@ -577,7 +595,8 @@ mod tests {
         db.insert_repo("url", "r", "/r", "main").unwrap();
         db.insert_task("reck-e", 1, "will fail").unwrap();
 
-        db.set_task_error("reck-e", "running", "connection refused").unwrap();
+        db.set_task_error("reck-e", "running", "connection refused")
+            .unwrap();
 
         let task = db.get_task("reck-e").unwrap().unwrap();
         assert_eq!(task.failed_stage.as_deref(), Some("running"));
@@ -590,15 +609,20 @@ mod tests {
         db.insert_repo("url", "r", "/r", "main").unwrap();
         db.insert_task("reck-a", 1, "audit test").unwrap();
 
-        db.transition_task("reck-a", "pending", "provisioning", Some("starting")).unwrap();
-        db.transition_task("reck-a", "provisioning", "running", None).unwrap();
+        db.transition_task("reck-a", "pending", "provisioning", Some("starting"))
+            .unwrap();
+        db.transition_task("reck-a", "provisioning", "running", None)
+            .unwrap();
 
         // Check task_transitions table directly
-        let count: i64 = db.conn().query_row(
-            "SELECT COUNT(*) FROM task_transitions WHERE task_id = 'reck-a'",
-            [],
-            |row| row.get(0),
-        ).unwrap();
+        let count: i64 = db
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM task_transitions WHERE task_id = 'reck-a'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 2);
     }
 
@@ -608,9 +632,12 @@ mod tests {
         db.insert_repo("url", "r", "/r", "main").unwrap();
         db.insert_task("reck-d", 1, "complete me").unwrap();
 
-        db.transition_task("reck-d", "pending", "provisioning", None).unwrap();
-        db.transition_task("reck-d", "provisioning", "running", None).unwrap();
-        db.transition_task("reck-d", "running", "done", None).unwrap();
+        db.transition_task("reck-d", "pending", "provisioning", None)
+            .unwrap();
+        db.transition_task("reck-d", "provisioning", "running", None)
+            .unwrap();
+        db.transition_task("reck-d", "running", "done", None)
+            .unwrap();
 
         let task = db.get_task("reck-d").unwrap().unwrap();
         assert_eq!(task.status, "done");
@@ -623,7 +650,8 @@ mod tests {
         db.insert_repo("url", "r", "/r", "main").unwrap();
         db.insert_task("reck-f", 1, "fail me").unwrap();
 
-        db.transition_task("reck-f", "pending", "failed", Some("boom")).unwrap();
+        db.transition_task("reck-f", "pending", "failed", Some("boom"))
+            .unwrap();
 
         let task = db.get_task("reck-f").unwrap().unwrap();
         assert_eq!(task.status, "failed");
@@ -638,17 +666,22 @@ mod tests {
         db.insert_repo("url", "r", "/r", "main").unwrap();
         db.insert_task("reck-run", 1, "run test").unwrap();
 
-        let run_id = db.insert_run("reck-run", "pipeline.dot", "/logs/reck-run").unwrap();
+        let run_id = db
+            .insert_run("reck-run", "pipeline.dot", "/logs/reck-run")
+            .unwrap();
         assert!(run_id > 0);
 
         db.finish_run(run_id, "success", 1.23, 45).unwrap();
 
         // Verify via direct query
-        let (status, cost, dur): (String, f64, i64) = db.conn().query_row(
-            "SELECT status, cost_usd, duration_secs FROM runs WHERE id = ?1",
-            [run_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        ).unwrap();
+        let (status, cost, dur): (String, f64, i64) = db
+            .conn()
+            .query_row(
+                "SELECT status, cost_usd, duration_secs FROM runs WHERE id = ?1",
+                [run_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
         assert_eq!(status, "success");
         assert!((cost - 1.23).abs() < 0.001);
         assert_eq!(dur, 45);

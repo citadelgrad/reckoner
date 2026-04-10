@@ -37,8 +37,12 @@ pub struct ToolchainGlobalConfig {
     pub defaults: ToolchainConfig,
 }
 
-fn default_max_fix_iterations() -> u32 { 3 }
-fn default_max_file_lines() -> u32 { 500 }
+fn default_max_fix_iterations() -> u32 {
+    3
+}
+fn default_max_file_lines() -> u32 {
+    500
+}
 
 impl Default for LinterConfig {
     fn default() -> Self {
@@ -102,28 +106,60 @@ pub struct PasConfig {
 }
 
 fn reckoner_dir() -> PathBuf {
-    dirs::home_dir()
-        .expect("HOME not set")
-        .join(".reckoner")
+    dirs::home_dir().expect("HOME not set").join(".reckoner")
 }
 
-fn default_repos_dir() -> PathBuf { reckoner_dir().join("repos") }
-fn default_worktrees_dir() -> PathBuf { reckoner_dir().join("worktrees") }
-fn default_logs_dir() -> PathBuf { reckoner_dir().join("logs") }
-fn default_db_path() -> PathBuf { reckoner_dir().join("reckoner.db") }
-fn default_runtime() -> String { "orbstack".into() }
-fn default_base_image() -> String { "reckoner-base:latest".into() }
-fn default_network() -> String { "reckoner-net".into() }
-fn default_memory() -> String { "4g".into() }
-fn default_cpus() -> u32 { 4 }
-fn default_pids_limit() -> u64 { 512 }
-fn default_true() -> bool { true }
-fn default_pr_prefix() -> String { "reckoner".into() }
-fn default_commit_author() -> String { "Reckoner <reckoner@local>".into() }
-fn default_pas_binary() -> String { "pas".into() }
-fn default_model() -> String { "sonnet".into() }
-fn default_budget() -> f64 { 10.0 }
-fn default_max_steps() -> u64 { 200 }
+fn default_repos_dir() -> PathBuf {
+    reckoner_dir().join("repos")
+}
+fn default_worktrees_dir() -> PathBuf {
+    reckoner_dir().join("worktrees")
+}
+fn default_logs_dir() -> PathBuf {
+    reckoner_dir().join("logs")
+}
+fn default_db_path() -> PathBuf {
+    reckoner_dir().join("reckoner.db")
+}
+fn default_runtime() -> String {
+    "orbstack".into()
+}
+fn default_base_image() -> String {
+    "reckoner-base:latest".into()
+}
+fn default_network() -> String {
+    "reckoner-net".into()
+}
+fn default_memory() -> String {
+    "4g".into()
+}
+fn default_cpus() -> u32 {
+    4
+}
+fn default_pids_limit() -> u64 {
+    512
+}
+fn default_true() -> bool {
+    true
+}
+fn default_pr_prefix() -> String {
+    "reckoner".into()
+}
+fn default_commit_author() -> String {
+    "Reckoner <reckoner@local>".into()
+}
+fn default_pas_binary() -> String {
+    "pas".into()
+}
+fn default_model() -> String {
+    "sonnet".into()
+}
+fn default_budget() -> f64 {
+    10.0
+}
+fn default_max_steps() -> u64 {
+    200
+}
 
 impl Config {
     pub fn linters_enabled(&self) -> bool {
@@ -143,21 +179,30 @@ impl Default for Config {
     fn default() -> Self {
         // Default toolchain presets
         let mut tc_defaults = ToolchainConfig::new();
-        tc_defaults.insert("python".into(), LanguageTools {
-            lint: Some("ruff check --fix .".into()),
-            format: Some("ruff format .".into()),
-            typecheck: Some("ty check .".into()),
-        });
-        tc_defaults.insert("typescript".into(), LanguageTools {
-            lint: Some("biome check --fix .".into()),
-            format: Some("biome format --fix .".into()),
-            typecheck: Some("biome check .".into()),
-        });
-        tc_defaults.insert("rust".into(), LanguageTools {
-            lint: Some("cargo clippy --workspace -- -D warnings".into()),
-            format: Some("cargo fmt --all".into()),
-            typecheck: Some("cargo check --workspace".into()),
-        });
+        tc_defaults.insert(
+            "python".into(),
+            LanguageTools {
+                lint: Some("ruff check --fix .".into()),
+                format: Some("ruff format .".into()),
+                typecheck: Some("ty check .".into()),
+            },
+        );
+        tc_defaults.insert(
+            "typescript".into(),
+            LanguageTools {
+                lint: Some("biome check --fix .".into()),
+                format: Some("biome format --fix .".into()),
+                typecheck: Some("biome check .".into()),
+            },
+        );
+        tc_defaults.insert(
+            "rust".into(),
+            LanguageTools {
+                lint: Some("cargo clippy --workspace -- -D warnings".into()),
+                format: Some("cargo fmt --all".into()),
+                typecheck: Some("cargo check --workspace".into()),
+            },
+        );
 
         Self {
             general: GeneralConfig::default(),
@@ -165,7 +210,9 @@ impl Default for Config {
             git: GitConfig::default(),
             pas: PasConfig::default(),
             linters: LinterConfig::default(),
-            toolchain: ToolchainGlobalConfig { defaults: tc_defaults },
+            toolchain: ToolchainGlobalConfig {
+                defaults: tc_defaults,
+            },
         }
     }
 }

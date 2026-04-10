@@ -39,7 +39,10 @@ pub struct CalendarInterval {
 pub fn parse_cron(expr: &str) -> anyhow::Result<CalendarInterval> {
     let parts: Vec<&str> = expr.trim().split_whitespace().collect();
     if parts.len() != 5 {
-        anyhow::bail!("cron expression must have 5 fields (minute hour day month weekday), got {}", parts.len());
+        anyhow::bail!(
+            "cron expression must have 5 fields (minute hour day month weekday), got {}",
+            parts.len()
+        );
     }
 
     let minute = parse_cron_field(parts[0])?;
@@ -61,7 +64,9 @@ fn parse_cron_field(s: &str) -> anyhow::Result<Option<u32>> {
     if s == "*" {
         Ok(None)
     } else {
-        let val: u32 = s.parse().map_err(|_| anyhow::anyhow!("invalid cron field: '{}'", s))?;
+        let val: u32 = s
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid cron field: '{}'", s))?;
         Ok(Some(val))
     }
 }

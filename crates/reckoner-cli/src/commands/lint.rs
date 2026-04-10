@@ -12,7 +12,10 @@ pub fn run(repo_name: &str, config: &Config) -> anyhow::Result<()> {
     let bare_path = std::path::PathBuf::from(&repo.local_path);
 
     // Use a temporary worktree for linting (read-only check against current HEAD)
-    let branch = format!("reckoner/lint-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap());
+    let branch = format!(
+        "reckoner/lint-{}",
+        uuid::Uuid::new_v4().to_string().split('-').next().unwrap()
+    );
     let worktree_path = reckoner_core::repo::worktree_add(
         &bare_path,
         &config.general.worktrees_dir,

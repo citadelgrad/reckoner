@@ -75,9 +75,7 @@ fn detect_languages(worktree_path: &Path) -> Vec<String> {
     }
 
     // TypeScript/JavaScript: package.json, tsconfig.json
-    if worktree_path.join("package.json").exists()
-        || worktree_path.join("tsconfig.json").exists()
-    {
+    if worktree_path.join("package.json").exists() || worktree_path.join("tsconfig.json").exists() {
         langs.push("typescript".into());
     }
 

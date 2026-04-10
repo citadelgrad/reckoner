@@ -154,7 +154,12 @@ pub fn infra_status() -> anyhow::Result<String> {
     }
 
     let output = Command::new("docker")
-        .args(["compose", "ps", "--format", "table {{.Name}}\t{{.Status}}\t{{.Ports}}"])
+        .args([
+            "compose",
+            "ps",
+            "--format",
+            "table {{.Name}}\t{{.Status}}\t{{.Ports}}",
+        ])
         .current_dir(&dir)
         .output()?;
 

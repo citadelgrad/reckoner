@@ -158,7 +158,8 @@ pub async fn run_task(
             }
 
             let commit_msg = format!("reck: {}", prompt);
-            if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author) {
+            if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author)
+            {
                 tracing::warn!(error = %e, "commit failed");
                 fail_task(db_path, &task_id, "pr_open", &e)?;
                 let _ = repo::worktree_remove(&bare_path, &worktree_path);
@@ -282,11 +283,7 @@ fn run_on_host(
 
 /// Run the lint phase: toolchain (format/lint/typecheck) + architectural linters.
 /// Saves results to logs. Does NOT run the fix loop yet (that requires Claude).
-fn run_lint_phase(
-    config: &Config,
-    worktree_path: &Path,
-    logs_path: &Path,
-) -> anyhow::Result<()> {
+fn run_lint_phase(config: &Config, worktree_path: &Path, logs_path: &Path) -> anyhow::Result<()> {
     // 1. Toolchain: format → lint → typecheck
     let tc_config = crate::toolchain::load_toolchain(worktree_path, config.toolchain_defaults());
     if !tc_config.is_empty() {
@@ -296,7 +293,11 @@ fn run_lint_phase(
             let status = if r.passed() { "PASS" } else { "FAIL" };
             let line = format!(
                 "{{\"phase\":\"{}\",\"language\":\"{}\",\"command\":\"{}\",\"status\":\"{}\",\"exit_code\":{}}}\n",
-                r.phase, r.language, r.command.replace('"', "\\\""), status, r.exit_code
+                r.phase,
+                r.language,
+                r.command.replace('"', "\\\""),
+                status,
+                r.exit_code
             );
             toolchain_log.push_str(&line);
 
@@ -375,7 +376,12 @@ fn run_lint_phase(
 }
 
 /// Helper to record a failure and transition to failed state.
-fn fail_task(db_path: &Path, task_id: &str, stage: &str, err: &anyhow::Error) -> anyhow::Result<()> {
+fn fail_task(
+    db_path: &Path,
+    task_id: &str,
+    stage: &str,
+    err: &anyhow::Error,
+) -> anyhow::Result<()> {
     let db = Db::open(db_path)?;
     db.set_task_error(task_id, stage, &err.to_string())?;
     // Try the most likely transition; if it fails (wrong from-state), that's ok

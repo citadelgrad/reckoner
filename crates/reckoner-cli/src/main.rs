@@ -1,11 +1,14 @@
 mod commands;
 
-
 use clap::{Parser, Subcommand};
 use reckoner_core::config::Config;
 
 #[derive(Parser)]
-#[command(name = "reck", version, about = "Reckoner — software factory wrapping PAS")]
+#[command(
+    name = "reck",
+    version,
+    about = "Reckoner — software factory wrapping PAS"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -170,9 +173,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let filter = if cli.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     let config = Config::load(&Config::config_path())?;
     config.ensure_dirs()?;
@@ -225,15 +226,18 @@ async fn main() -> anyhow::Result<()> {
                 }
             } else {
                 // Show summary of all log files for this task
-                let summary = reckoner_core::logs::list_log_files(
-                    &config.general.logs_dir,
-                    &task_id,
-                )?;
+                let summary =
+                    reckoner_core::logs::list_log_files(&config.general.logs_dir, &task_id)?;
                 print!("{}", reckoner_core::logs::format_summary(&summary));
             }
         }
         Commands::Schedule { action } => match action {
-            ScheduleAction::Add { name, repo, pipeline, cron } => {
+            ScheduleAction::Add {
+                name,
+                repo,
+                pipeline,
+                cron,
+            } => {
                 commands::schedule::add(&name, &repo, &pipeline, &cron, &config)?;
             }
             ScheduleAction::List => {
@@ -242,7 +246,11 @@ async fn main() -> anyhow::Result<()> {
             ScheduleAction::Remove { name } => {
                 commands::schedule::remove(&name)?;
             }
-            ScheduleAction::Run { name, repo, pipeline } => {
+            ScheduleAction::Run {
+                name,
+                repo,
+                pipeline,
+            } => {
                 commands::schedule::run_now(&name, &repo, &pipeline, &config)?;
             }
         },

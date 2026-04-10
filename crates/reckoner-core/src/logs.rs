@@ -48,7 +48,11 @@ pub fn list_log_files(logs_dir: &Path, task_id: &str) -> anyhow::Result<LogSumma
         }
         let meta = std::fs::metadata(&path)?;
         let size = meta.len();
-        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
 
         let line_count = if size > 0 {
             std::fs::read_to_string(&path)

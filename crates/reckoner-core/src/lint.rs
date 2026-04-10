@@ -23,11 +23,17 @@ pub struct LintReport {
 
 impl LintReport {
     pub fn failures(&self) -> Vec<&LintFinding> {
-        self.findings.iter().filter(|f| f.status == "fail").collect()
+        self.findings
+            .iter()
+            .filter(|f| f.status == "fail")
+            .collect()
     }
 
     pub fn warnings(&self) -> Vec<&LintFinding> {
-        self.findings.iter().filter(|f| f.status == "warn").collect()
+        self.findings
+            .iter()
+            .filter(|f| f.status == "warn")
+            .collect()
     }
 
     pub fn passed(&self) -> bool {
@@ -105,13 +111,25 @@ fn lint_file_size(worktree_path: &Path, max_lines: u32) -> anyhow::Result<Vec<Li
     let output = std::process::Command::new("find")
         .args([
             worktree_path.to_str().unwrap_or("."),
-            "-type", "f",
-            "-name", "*.rs",
-            "-o", "-name", "*.py",
-            "-o", "-name", "*.ts",
-            "-o", "-name", "*.tsx",
-            "-o", "-name", "*.js",
-            "-o", "-name", "*.go",
+            "-type",
+            "f",
+            "-name",
+            "*.rs",
+            "-o",
+            "-name",
+            "*.py",
+            "-o",
+            "-name",
+            "*.ts",
+            "-o",
+            "-name",
+            "*.tsx",
+            "-o",
+            "-name",
+            "*.js",
+            "-o",
+            "-name",
+            "*.go",
         ])
         .output()?;
 
@@ -169,9 +187,7 @@ fn lint_file_size(worktree_path: &Path, max_lines: u32) -> anyhow::Result<Vec<Li
 
 /// Directories to search for external linter executables.
 fn external_linter_dirs(worktree_path: &Path, _config: &crate::config::Config) -> Vec<PathBuf> {
-    let mut dirs = vec![
-        worktree_path.join(".reckoner/linters"),
-    ];
+    let mut dirs = vec![worktree_path.join(".reckoner/linters")];
     if let Some(home) = dirs::home_dir() {
         dirs.push(home.join(".reckoner/linters"));
     }

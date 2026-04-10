@@ -27,10 +27,7 @@ pub fn list(config: &Config) -> anyhow::Result<()> {
     println!("{:<20} {:<12} {:<30}", "NAME", "BRANCH", "URL");
     println!("{}", "-".repeat(62));
     for r in &repos {
-        let _synced = r
-            .last_synced
-            .as_deref()
-            .unwrap_or("never");
+        let _synced = r.last_synced.as_deref().unwrap_or("never");
         println!("{:<20} {:<12} {}", r.name, r.default_branch, r.url);
     }
     Ok(())

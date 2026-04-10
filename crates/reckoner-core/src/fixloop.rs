@@ -72,10 +72,7 @@ pub fn run_fix_loop(
 
         // Detect stuck violations (same finding persists across iterations)
         let current_keys: HashSet<String> = failures.iter().map(|f| finding_key(f)).collect();
-        let stuck: Vec<String> = current_keys
-            .intersection(&previous_keys)
-            .cloned()
-            .collect();
+        let stuck: Vec<String> = current_keys.intersection(&previous_keys).cloned().collect();
 
         if !stuck.is_empty() {
             tracing::warn!(

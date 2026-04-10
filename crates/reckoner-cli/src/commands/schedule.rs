@@ -16,9 +16,7 @@ pub fn add(
         .ok_or_else(|| anyhow::anyhow!("repo '{}' not found", repo_name))?;
 
     // Find the reck binary path
-    let reck_binary = std::env::current_exe()?
-        .to_string_lossy()
-        .into_owned();
+    let reck_binary = std::env::current_exe()?.to_string_lossy().into_owned();
 
     // Build and write plist
     let agent = schedule::build_plist(
@@ -38,7 +36,11 @@ pub fn add(
     // Load into launchd
     match schedule::launchctl_load(&plist_path) {
         Ok(()) => println!("Schedule '{}' loaded", name),
-        Err(e) => println!("Plist written but launchctl load failed: {}\nManually load with: launchctl load {}", e, plist_path.display()),
+        Err(e) => println!(
+            "Plist written but launchctl load failed: {}\nManually load with: launchctl load {}",
+            e,
+            plist_path.display()
+        ),
     }
 
     println!("  Label:    {}", agent.label);
@@ -82,13 +84,24 @@ pub fn run_now(
     println!("Running schedule '{}' manually...", name);
     // Just delegate to reck task --no-pr
     let status = std::process::Command::new(std::env::current_exe()?)
-        .args(["task", repo_name, &format!("scheduled: {}", name), "--pipeline", pipeline, "--no-pr"])
+        .args([
+            "task",
+            repo_name,
+            &format!("scheduled: {}", name),
+            "--pipeline",
+            pipeline,
+            "--no-pr",
+        ])
         .status()?;
 
     if status.success() {
         println!("Schedule '{}' completed successfully", name);
     } else {
-        println!("Schedule '{}' failed (exit code: {:?})", name, status.code());
+        println!(
+            "Schedule '{}' failed (exit code: {:?})",
+            name,
+            status.code()
+        );
     }
 
     Ok(())

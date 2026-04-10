@@ -115,7 +115,12 @@ pub fn worktree_remove(bare_path: &Path, worktree_path: &Path) -> anyhow::Result
     tracing::info!(path = %worktree_path.display(), "removing worktree");
     git(
         bare_path,
-        &["worktree", "remove", "--force", &worktree_path.to_string_lossy()],
+        &[
+            "worktree",
+            "remove",
+            "--force",
+            &worktree_path.to_string_lossy(),
+        ],
     )?;
     Ok(())
 }
@@ -153,13 +158,7 @@ pub fn commit_all(worktree_path: &Path, message: &str, author: &str) -> anyhow::
     }
 
     // Parse "Name <email>" from author string
-    let commit_args = vec![
-        "commit",
-        "-m",
-        message,
-        "--author",
-        author,
-    ];
+    let commit_args = vec!["commit", "-m", message, "--author", author];
     git(worktree_path, &commit_args)?;
     tracing::info!("committed changes");
     Ok(())
@@ -182,12 +181,18 @@ pub fn create_pr(
     tracing::info!(title, base = base_branch, "creating PR");
     let output = Command::new("gh")
         .args([
-            "pr", "create",
-            "--title", title,
-            "--body", body,
-            "--base", base_branch,
-            "--json", "url",
-            "--jq", ".url",
+            "pr",
+            "create",
+            "--title",
+            title,
+            "--body",
+            body,
+            "--base",
+            base_branch,
+            "--json",
+            "url",
+            "--jq",
+            ".url",
         ])
         .current_dir(worktree_path)
         .env("GIT_TERMINAL_PROMPT", "0")
@@ -206,9 +211,12 @@ pub fn create_pr(
 /// Get a short diffstat for the PR body.
 pub fn diffstat(worktree_path: &Path, base_branch: &str) -> anyhow::Result<String> {
     // Diff against the base branch (origin/base)
-    git(worktree_path, &["diff", "--stat", &format!("origin/{}", base_branch), "HEAD"])
-        .or_else(|_| git(worktree_path, &["diff", "--stat", "HEAD~1", "HEAD"]))
-        .unwrap_or_else(|_| "unable to compute diff".into());
+    git(
+        worktree_path,
+        &["diff", "--stat", &format!("origin/{}", base_branch), "HEAD"],
+    )
+    .or_else(|_| git(worktree_path, &["diff", "--stat", "HEAD~1", "HEAD"]))
+    .unwrap_or_else(|_| "unable to compute diff".into());
     git(worktree_path, &["diff", "--stat", "HEAD~1", "HEAD"])
 }
 
@@ -241,10 +249,7 @@ mod tests {
 
     #[test]
     fn name_from_ssh_url() {
-        assert_eq!(
-            name_from_url("git@github.com:user/my-repo.git"),
-            "my-repo"
-        );
+        assert_eq!(name_from_url("git@github.com:user/my-repo.git"), "my-repo");
     }
 
     #[test]
@@ -257,10 +262,7 @@ mod tests {
 
     #[test]
     fn name_from_url_no_git_suffix() {
-        assert_eq!(
-            name_from_url("https://github.com/user/my-repo"),
-            "my-repo"
-        );
+        assert_eq!(name_from_url("https://github.com/user/my-repo"), "my-repo");
     }
 
     #[test]

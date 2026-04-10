@@ -21,11 +21,19 @@ pub fn run(config: &Config) -> anyhow::Result<()> {
 
     // Check database
     let db_exists = config.general.db_path.exists();
-    print_check("SQLite database", db_exists, &config.general.db_path.to_string_lossy());
+    print_check(
+        "SQLite database",
+        db_exists,
+        &config.general.db_path.to_string_lossy(),
+    );
 
     // Check repos dir
     let repos_exists = config.general.repos_dir.exists();
-    print_check("Repos directory", repos_exists, &config.general.repos_dir.to_string_lossy());
+    print_check(
+        "Repos directory",
+        repos_exists,
+        &config.general.repos_dir.to_string_lossy(),
+    );
 
     if ok {
         println!("\nAll checks passed.");

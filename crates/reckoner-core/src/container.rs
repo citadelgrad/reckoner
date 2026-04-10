@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
+use bollard::Docker;
 use bollard::container::{
     Config as ContainerConfig, CreateContainerOptions, LogOutput, LogsOptions,
     RemoveContainerOptions, StartContainerOptions, StopContainerOptions,
 };
 use bollard::models::{HostConfig, Mount, MountTypeEnum};
-use bollard::Docker;
 use futures_util::StreamExt;
 
 /// Unique container identifier returned by create.
@@ -129,11 +129,7 @@ impl DockerRuntime {
     }
 
     /// Run a command inside the container, capturing stdout and stderr.
-    pub async fn run_command(
-        &self,
-        id: &ContainerId,
-        cmd: &[&str],
-    ) -> anyhow::Result<RunResult> {
+    pub async fn run_command(&self, id: &ContainerId, cmd: &[&str]) -> anyhow::Result<RunResult> {
         use bollard::exec::{CreateExecOptions, StartExecResults};
 
         let exec_instance = self
