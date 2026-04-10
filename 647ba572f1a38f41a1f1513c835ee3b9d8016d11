@@ -1,0 +1,25 @@
+docs/spec-vps-container-execution.md
+  9b9090c0ba2954ea 1-361
+docs/prd-vps-container-execution.md
+  9b9090c0ba2954ea 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "647ba572f1a38f41a1f1513c835ee3b9d8016d11",
+  "prompts": {
+    "9b9090c0ba2954ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93c0612a-fb28-4d15-807b-853f797eabce",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 447,
+      "total_deletions": 0,
+      "accepted_lines": 447,
+      "overriden_lines": 0
+    }
+  }
+}
