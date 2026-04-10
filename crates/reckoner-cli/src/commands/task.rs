@@ -1,13 +1,20 @@
 use reckoner_core::config::Config;
-use reckoner_core::task;
+use reckoner_core::task::{self, TaskOptions};
 
 pub async fn run(
     repo_name: &str,
     prompt: &str,
     pipeline: Option<&str>,
+    create_pr: bool,
     config: &Config,
 ) -> anyhow::Result<()> {
-    let task_id = task::run_task(config, &config.general.db_path, repo_name, prompt, pipeline).await?;
+    let opts = TaskOptions {
+        repo_name,
+        prompt,
+        pipeline,
+        create_pr,
+    };
+    let task_id = task::run_task(config, &config.general.db_path, &opts).await?;
     println!("Task {} completed", task_id);
     Ok(())
 }

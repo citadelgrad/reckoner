@@ -31,19 +31,28 @@ fn gen_task_id() -> String {
     format!("reck-{}", &id.to_string()[..8])
 }
 
+/// Options for task execution.
+pub struct TaskOptions<'a> {
+    pub repo_name: &'a str,
+    pub prompt: &'a str,
+    pub pipeline: Option<&'a str>,
+    pub create_pr: bool,
+}
+
 /// Run a complete task lifecycle.
 ///
 /// Local mode: runs claude/pas on the HOST (uses Claude subscription auth).
-/// The worktree provides file isolation. Containers are used later for
-/// repo-specific tools (tests, linters, build) in Phase 5.
+/// The worktree provides file isolation. If `create_pr` is true, commits
+/// changes, pushes the branch, and opens a PR via `gh`.
 pub async fn run_task(
     config: &Config,
     db_path: &Path,
-    repo_name: &str,
-    prompt: &str,
-    pipeline: Option<&str>,
+    opts: &TaskOptions<'_>,
 ) -> anyhow::Result<String> {
     let task_id = gen_task_id();
+    let prompt = opts.prompt;
+    let repo_name = opts.repo_name;
+    let pipeline = opts.pipeline;
     tracing::info!(task_id, repo = repo_name, "starting task");
 
     // Look up the repo
@@ -101,41 +110,81 @@ pub async fn run_task(
     let run_result = run_on_host(config, prompt, pipeline, &worktree_path, &logs_path);
     let duration = start_time.elapsed().as_secs() as i64;
 
-    match &run_result {
-        Ok(exit_code) => {
+    let _exit_code = match run_result {
+        Ok(code) => {
             let db = Db::open(db_path)?;
             let run_id = db.insert_run(
                 &task_id,
                 pipeline.unwrap_or("direct"),
                 &logs_path.to_string_lossy(),
             )?;
-            let status = if *exit_code == 0 { "success" } else { "partial" };
+            let status = if code == 0 { "success" } else { "partial" };
             db.finish_run(run_id, status, 0.0, duration)?;
 
-            if *exit_code != 0 {
-                tracing::warn!(exit_code, "claude/pas exited with non-zero code");
+            if code != 0 {
+                tracing::warn!(code, "claude/pas exited with non-zero code");
             }
+            code
         }
         Err(e) => {
-            fail_task(db_path, &task_id, "running", e)?;
+            fail_task(db_path, &task_id, "running", &e)?;
+            let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            return Err(e);
+        }
+    };
+
+    // ── 3. PR (commit + push + open PR) ──────────────────────────────
+
+    if opts.create_pr && config.git.auto_pr {
+        if repo::has_changes(&worktree_path)? {
+            {
+                let db = Db::open(db_path)?;
+                db.transition_task(&task_id, "running", "pr_open", None)?;
+            }
+
+            let commit_msg = format!("reck: {}", prompt);
+            if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author) {
+                tracing::warn!(error = %e, "commit failed");
+                fail_task(db_path, &task_id, "pr_open", &e)?;
+                let _ = repo::worktree_remove(&bare_path, &worktree_path);
+                return Err(e);
+            }
+
+            if let Err(e) = repo::push(&worktree_path, &branch_name) {
+                tracing::warn!(error = %e, "push failed");
+                fail_task(db_path, &task_id, "pr_open", &e)?;
+                let _ = repo::worktree_remove(&bare_path, &worktree_path);
+                return Err(e);
+            }
+
+            let diff = repo::diffstat(&worktree_path, &r.default_branch).unwrap_or_default();
+            let body = repo::pr_body(&task_id, prompt, &diff);
+            let pr_title = format!("{}: {}", config.git.pr_prefix, prompt);
+
+            match repo::create_pr(&worktree_path, &pr_title, &body, &r.default_branch) {
+                Ok(pr_url) => {
+                    println!("PR: {}", pr_url);
+                    let db = Db::open(db_path)?;
+                    db.set_task_pr(&task_id, &pr_url)?;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "PR creation failed (changes are pushed)");
+                }
+            }
+        } else {
+            tracing::info!("no changes to commit");
         }
     }
 
-    // ── 3. CLEANUP ───────────────────────────────────────────────────
+    // ── 4. CLEANUP ───────────────────────────────────────────────────
 
-    // Keep worktree if task succeeded (for PR phase later)
-    // Remove worktree on failure
-    if run_result.is_err() {
-        let _ = repo::worktree_remove(&bare_path, &worktree_path);
-        return Err(run_result.unwrap_err());
-    }
-
-    // For now, clean up worktree (PR integration is Phase 4)
     let _ = repo::worktree_remove(&bare_path, &worktree_path);
 
     {
         let db = Db::open(db_path)?;
-        db.transition_task(&task_id, "running", "done", None)?;
+        // Transition from wherever we are to done
+        let _ = db.transition_task(&task_id, "pr_open", "done", None);
+        let _ = db.transition_task(&task_id, "running", "done", None);
     }
 
     tracing::info!(task_id, duration_secs = duration, "task completed");

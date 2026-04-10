@@ -49,6 +49,10 @@ enum Commands {
         /// Use a specific .dot pipeline file
         #[arg(long)]
         pipeline: Option<String>,
+
+        /// Skip PR creation (just run and collect logs)
+        #[arg(long)]
+        no_pr: bool,
     },
 
     /// Show task status
@@ -110,8 +114,9 @@ async fn main() -> anyhow::Result<()> {
             repo,
             prompt,
             pipeline,
+            no_pr,
         } => {
-            commands::task::run(&repo, &prompt, pipeline.as_deref(), &config).await?;
+            commands::task::run(&repo, &prompt, pipeline.as_deref(), !no_pr, &config).await?;
         }
         Commands::Status { task_id } => {
             if let Some(id) = task_id {
