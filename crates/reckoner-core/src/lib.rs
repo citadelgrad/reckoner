@@ -4,5 +4,6 @@ pub mod db;
 pub mod lint;
 pub mod logs;
 pub mod repo;
+pub mod schedule;
 pub mod task;
 pub mod toolchain;

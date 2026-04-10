@@ -85,6 +85,12 @@ enum Commands {
         repo: String,
     },
 
+    /// Manage scheduled background pipelines
+    Schedule {
+        #[command(subcommand)]
+        action: ScheduleAction,
+    },
+
     /// Check system health
     Doctor,
 
@@ -93,6 +99,51 @@ enum Commands {
 
     /// Initialize Reckoner (create dirs, default config)
     Init,
+}
+
+#[derive(Subcommand)]
+enum ScheduleAction {
+    /// Add a new scheduled pipeline
+    Add {
+        /// Schedule name (e.g., entropy-gc)
+        #[arg(long)]
+        name: String,
+
+        /// Repo name
+        #[arg(long)]
+        repo: String,
+
+        /// Path to .dot pipeline file
+        #[arg(long)]
+        pipeline: String,
+
+        /// Cron expression (e.g., "0 3 * * *" for daily at 3am)
+        #[arg(long)]
+        cron: String,
+    },
+
+    /// List all schedules
+    List,
+
+    /// Remove a schedule
+    Remove {
+        /// Schedule name
+        name: String,
+    },
+
+    /// Manually run a scheduled pipeline now
+    Run {
+        /// Schedule name
+        name: String,
+
+        /// Repo name
+        #[arg(long)]
+        repo: String,
+
+        /// Path to .dot pipeline file
+        #[arg(long)]
+        pipeline: String,
+    },
 }
 
 #[tokio::main]
@@ -165,6 +216,20 @@ async fn main() -> anyhow::Result<()> {
                 print!("{}", reckoner_core::logs::format_summary(&summary));
             }
         }
+        Commands::Schedule { action } => match action {
+            ScheduleAction::Add { name, repo, pipeline, cron } => {
+                commands::schedule::add(&name, &repo, &pipeline, &cron, &config)?;
+            }
+            ScheduleAction::List => {
+                commands::schedule::list()?;
+            }
+            ScheduleAction::Remove { name } => {
+                commands::schedule::remove(&name)?;
+            }
+            ScheduleAction::Run { name, repo, pipeline } => {
+                commands::schedule::run_now(&name, &repo, &pipeline, &config)?;
+            }
+        },
         Commands::Doctor => {
             commands::doctor::run(&config)?;
         }
