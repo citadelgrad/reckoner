@@ -1,6 +1,8 @@
 pub mod config;
 pub mod container;
 pub mod db;
+pub mod fixloop;
+pub mod infra;
 pub mod lint;
 pub mod logs;
 pub mod repo;

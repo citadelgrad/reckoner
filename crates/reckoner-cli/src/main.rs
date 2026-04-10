@@ -91,6 +91,15 @@ enum Commands {
         action: ScheduleAction,
     },
 
+    /// Manage observability infrastructure (Loki + Grafana)
+    Infra {
+        #[command(subcommand)]
+        action: InfraAction,
+    },
+
+    /// Open observability dashboard in browser
+    Observe,
+
     /// Check system health
     Doctor,
 
@@ -146,6 +155,16 @@ enum ScheduleAction {
     },
 }
 
+#[derive(Subcommand)]
+enum InfraAction {
+    /// Start observability stack (Loki + Grafana)
+    Up,
+    /// Stop observability stack
+    Down,
+    /// Check observability stack status
+    Status,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -196,14 +215,11 @@ async fn main() -> anyhow::Result<()> {
             filter,
         } => {
             if app || lint {
-                // Show a specific log file
+                // Show a specific log file, using hl if available
                 let file = if app { "stdout.jsonl" } else { "linter.jsonl" };
                 let path = config.general.logs_dir.join(&task_id).join(file);
                 if path.exists() {
-                    let lines = reckoner_core::logs::read_log_file(&path, filter.as_deref())?;
-                    for line in lines {
-                        println!("{}", line);
-                    }
+                    reckoner_core::infra::view_log_with_hl(&path, filter.as_deref())?;
                 } else {
                     println!("No {} log found for task {}", file, task_id);
                 }
@@ -230,6 +246,23 @@ async fn main() -> anyhow::Result<()> {
                 commands::schedule::run_now(&name, &repo, &pipeline, &config)?;
             }
         },
+        Commands::Infra { action } => match action {
+            InfraAction::Up => {
+                reckoner_core::infra::infra_up()?;
+            }
+            InfraAction::Down => {
+                reckoner_core::infra::infra_down()?;
+            }
+            InfraAction::Status => {
+                let status = reckoner_core::infra::infra_status()?;
+                println!("{}", status);
+            }
+        },
+        Commands::Observe => {
+            let url = "http://localhost:3148";
+            println!("Opening Grafana at {}", url);
+            let _ = std::process::Command::new("open").arg(url).status();
+        }
         Commands::Doctor => {
             commands::doctor::run(&config)?;
         }

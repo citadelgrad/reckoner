@@ -331,12 +331,41 @@ fn run_lint_phase(
         tracing::info!(summary = %report.summary(), "architectural lint results");
 
         if !report.passed() {
-            let prompt = report.remediation_prompt();
             tracing::warn!(
                 failures = report.failures().len(),
-                "lint failures found — remediation prompt saved to logs"
+                "lint failures found — running fix loop"
             );
-            let _ = std::fs::write(logs_path.join("lint-remediation.md"), &prompt);
+
+            let fix_result = crate::fixloop::run_fix_loop(
+                config,
+                worktree_path,
+                logs_path,
+                &config.pas.default_model,
+            )?;
+
+            // Log fix loop results
+            let fix_summary = format!(
+                "{{\"iterations\":{},\"max\":{},\"final_failures\":{},\"passed\":{},\"stuck\":{}}}\n",
+                fix_result.iterations_run,
+                fix_result.max_iterations,
+                fix_result.final_failures,
+                fix_result.all_passed,
+                fix_result.stuck_violations.len(),
+            );
+            let _ = std::fs::write(logs_path.join("fix-loop-summary.jsonl"), &fix_summary);
+
+            if fix_result.all_passed {
+                tracing::info!(
+                    iterations = fix_result.iterations_run,
+                    "lint-fix loop resolved all violations"
+                );
+            } else {
+                tracing::warn!(
+                    remaining = fix_result.final_failures,
+                    stuck = fix_result.stuck_violations.len(),
+                    "lint-fix loop finished with remaining violations"
+                );
+            }
         }
     } else {
         tracing::info!("no architectural lint findings");
