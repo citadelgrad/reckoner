@@ -4,17 +4,13 @@ A software factory that wraps [PAS](https://github.com/citadelgrad/pascals-discr
 
 **Name origin:** Pascal's mechanical calculator was called "the Reckoner." Reckoner is the machine; PAS is the engine inside it.
 
-<p align="center">
-  <img src="docs/task-lifecycle.svg" alt="How Reckoner Works" width="800"/>
-</p>
+![How Reckoner Works](docs/task-lifecycle.svg)
 
 ### How task isolation works
 
 Reckoner never checks out code into the bare clone. Each task gets its own git worktree with a dedicated branch, sharing the bare clone's object store. A 2GB repo is stored once — not duplicated per task. Multiple tasks run concurrently against the same repo without conflicts, and worktrees are torn down after completion while logs are preserved forever.
 
-<p align="center">
-  <img src="docs/task-isolation.svg" alt="Concurrent Task Isolation" width="800"/>
-</p>
+![Concurrent Task Isolation](docs/task-isolation.svg)
 
 ## Quick Start
 
