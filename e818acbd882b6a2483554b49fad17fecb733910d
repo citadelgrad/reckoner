@@ -1,0 +1,25 @@
+crates/reckoner-core/src/fixloop.rs
+  9b9090c0ba2954ea 6
+crates/reckoner-core/src/task.rs
+  9b9090c0ba2954ea 380-408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "e818acbd882b6a2483554b49fad17fecb733910d",
+  "prompts": {
+    "9b9090c0ba2954ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93c0612a-fb28-4d15-807b-853f797eabce",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 36,
+      "accepted_lines": 31,
+      "overriden_lines": 0
+    }
+  }
+}
