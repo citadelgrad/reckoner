@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use crate::toolchain::{LanguageTools, ToolchainConfig};
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
@@ -11,6 +13,42 @@ pub struct Config {
     pub git: GitConfig,
     #[serde(default)]
     pub pas: PasConfig,
+    #[serde(default)]
+    pub linters: LinterConfig,
+    #[serde(default)]
+    pub toolchain: ToolchainGlobalConfig,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LinterConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub fail_on_warning: bool,
+    #[serde(default = "default_max_fix_iterations")]
+    pub max_fix_iterations: u32,
+    #[serde(default = "default_max_file_lines")]
+    pub max_file_lines: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct ToolchainGlobalConfig {
+    #[serde(default)]
+    pub defaults: ToolchainConfig,
+}
+
+fn default_max_fix_iterations() -> u32 { 3 }
+fn default_max_file_lines() -> u32 { 500 }
+
+impl Default for LinterConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            fail_on_warning: false,
+            max_fix_iterations: default_max_fix_iterations(),
+            max_file_lines: default_max_file_lines(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -87,13 +125,47 @@ fn default_model() -> String { "sonnet".into() }
 fn default_budget() -> f64 { 10.0 }
 fn default_max_steps() -> u64 { 200 }
 
+impl Config {
+    pub fn linters_enabled(&self) -> bool {
+        self.linters.enabled
+    }
+
+    pub fn linter_max_lines(&self) -> u32 {
+        self.linters.max_file_lines
+    }
+
+    pub fn toolchain_defaults(&self) -> &ToolchainConfig {
+        &self.toolchain.defaults
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
+        // Default toolchain presets
+        let mut tc_defaults = ToolchainConfig::new();
+        tc_defaults.insert("python".into(), LanguageTools {
+            lint: Some("ruff check --fix .".into()),
+            format: Some("ruff format .".into()),
+            typecheck: Some("ty check .".into()),
+        });
+        tc_defaults.insert("typescript".into(), LanguageTools {
+            lint: Some("biome check --fix .".into()),
+            format: Some("biome format --fix .".into()),
+            typecheck: Some("biome check .".into()),
+        });
+        tc_defaults.insert("rust".into(), LanguageTools {
+            lint: Some("cargo clippy --workspace -- -D warnings".into()),
+            format: Some("cargo fmt --all".into()),
+            typecheck: Some("cargo check --workspace".into()),
+        });
+
         Self {
             general: GeneralConfig::default(),
             container: ContainerConfig::default(),
             git: GitConfig::default(),
             pas: PasConfig::default(),
+            linters: LinterConfig::default(),
+            toolchain: ToolchainGlobalConfig { defaults: tc_defaults },
         }
     }
 }

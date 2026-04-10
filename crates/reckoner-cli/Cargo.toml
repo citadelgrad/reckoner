@@ -18,3 +18,4 @@ tracing-subscriber.workspace = true
 serde_json.workspace = true
 toml = "0.8"
 chrono.workspace = true
+uuid.workspace = true

@@ -75,6 +75,12 @@ enum Commands {
         lint: bool,
     },
 
+    /// Run toolchain + architectural linters against a repo
+    Lint {
+        /// Repo name
+        repo: String,
+    },
+
     /// Check system health
     Doctor,
 
@@ -124,6 +130,9 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 commands::status::show_all(&config)?;
             }
+        }
+        Commands::Lint { repo } => {
+            commands::lint::run(&repo, &config)?;
         }
         Commands::Logs {
             task_id,

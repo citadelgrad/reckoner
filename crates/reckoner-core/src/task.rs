@@ -133,13 +133,28 @@ pub async fn run_task(
         }
     };
 
-    // ── 3. PR (commit + push + open PR) ──────────────────────────────
+    // ── 3. LINT (toolchain + architectural linters + fix loop) ─────────
+
+    if config.linters_enabled() {
+        let db = Db::open(db_path)?;
+        db.transition_task(&task_id, "running", "linting", None)?;
+        drop(db);
+
+        run_lint_phase(config, &worktree_path, &logs_path)?;
+
+        // After linting (which may have auto-fixed things via toolchain format),
+        // transition back. The next phase will pick it up.
+    }
+
+    // ── 4. PR (commit + push + open PR) ──────────────────────────────
 
     if opts.create_pr && config.git.auto_pr {
         if repo::has_changes(&worktree_path)? {
             {
                 let db = Db::open(db_path)?;
-                db.transition_task(&task_id, "running", "pr_open", None)?;
+                // May be coming from "linting" or "running" depending on whether linters ran
+                let _ = db.transition_task(&task_id, "linting", "pr_open", None);
+                let _ = db.transition_task(&task_id, "running", "pr_open", None);
             }
 
             let commit_msg = format!("reck: {}", prompt);
@@ -184,6 +199,7 @@ pub async fn run_task(
         let db = Db::open(db_path)?;
         // Transition from wherever we are to done
         let _ = db.transition_task(&task_id, "pr_open", "done", None);
+        let _ = db.transition_task(&task_id, "linting", "done", None);
         let _ = db.transition_task(&task_id, "running", "done", None);
     }
 
@@ -262,6 +278,71 @@ fn run_on_host(
     }
 
     Ok(exit_code)
+}
+
+/// Run the lint phase: toolchain (format/lint/typecheck) + architectural linters.
+/// Saves results to logs. Does NOT run the fix loop yet (that requires Claude).
+fn run_lint_phase(
+    config: &Config,
+    worktree_path: &Path,
+    logs_path: &Path,
+) -> anyhow::Result<()> {
+    // 1. Toolchain: format → lint → typecheck
+    let tc_config = crate::toolchain::load_toolchain(worktree_path, config.toolchain_defaults());
+    if !tc_config.is_empty() {
+        let results = crate::toolchain::run_toolchain(worktree_path, &tc_config);
+        let mut toolchain_log = String::new();
+        for r in &results {
+            let status = if r.passed() { "PASS" } else { "FAIL" };
+            let line = format!(
+                "{{\"phase\":\"{}\",\"language\":\"{}\",\"command\":\"{}\",\"status\":\"{}\",\"exit_code\":{}}}\n",
+                r.phase, r.language, r.command.replace('"', "\\\""), status, r.exit_code
+            );
+            toolchain_log.push_str(&line);
+
+            if r.passed() {
+                tracing::info!(language = r.language, phase = r.phase, "toolchain: passed");
+            } else {
+                tracing::warn!(
+                    language = r.language,
+                    phase = r.phase,
+                    exit_code = r.exit_code,
+                    "toolchain: failed"
+                );
+            }
+        }
+        let _ = std::fs::write(logs_path.join("toolchain.jsonl"), &toolchain_log);
+    }
+
+    // 2. Architectural linters
+    let report = crate::lint::run_linters(worktree_path, config)?;
+
+    if !report.findings.is_empty() {
+        // Write findings as JSONL
+        let mut lint_log = String::new();
+        for f in &report.findings {
+            if let Ok(json) = serde_json::to_string(f) {
+                lint_log.push_str(&json);
+                lint_log.push('\n');
+            }
+        }
+        let _ = std::fs::write(logs_path.join("linter.jsonl"), &lint_log);
+
+        tracing::info!(summary = %report.summary(), "architectural lint results");
+
+        if !report.passed() {
+            let prompt = report.remediation_prompt();
+            tracing::warn!(
+                failures = report.failures().len(),
+                "lint failures found — remediation prompt saved to logs"
+            );
+            let _ = std::fs::write(logs_path.join("lint-remediation.md"), &prompt);
+        }
+    } else {
+        tracing::info!("no architectural lint findings");
+    }
+
+    Ok(())
 }
 
 /// Helper to record a failure and transition to failed state.
