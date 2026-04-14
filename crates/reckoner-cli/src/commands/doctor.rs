@@ -16,8 +16,8 @@ pub fn run(config: &Config) -> anyhow::Result<()> {
     // Check Docker / OrbStack
     ok &= check("docker", &["version", "--format", "{{.Server.Version}}"]);
 
-    // Check API keys
-    ok &= check_env("ANTHROPIC_API_KEY");
+    // Check claude CLI (uses Anthropic subscription auth, no API key needed)
+    ok &= check("claude", &["--version"]);
 
     // Check database
     let db_exists = config.general.db_path.exists();
@@ -60,16 +60,6 @@ fn check(binary: &str, args: &[&str]) -> bool {
             println!("  [FAIL] {}: not found on PATH", binary);
             false
         }
-    }
-}
-
-fn check_env(key: &str) -> bool {
-    if std::env::var(key).is_ok() {
-        println!("  [ok] {}: set", key);
-        true
-    } else {
-        println!("  [WARN] {}: not set", key);
-        false
     }
 }
 
