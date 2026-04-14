@@ -1,0 +1,53 @@
+crates/reckoner-cli/src/commands/doctor.rs
+  dae292a4ab16c3bd 19-20
+Cargo.toml
+  dae292a4ab16c3bd 9
+README.md
+  c40a8c064b507d25 3,5,7-17,19,21,23,25,27,31-65,67-70,78,85-106,108-113,115-119,122-126,130,132,134-135,137,139-146,148,150-168,195,197-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "cb83b32aaaacff9ea285fd143a23ba184eb61f33",
+  "prompts": {
+    "9b9090c0ba2954ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93c0612a-fb28-4d15-807b-853f797eabce",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "c40a8c064b507d25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "56039280-dd7e-4dd8-88e6-91dceb64c84b",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 142,
+      "total_deletions": 44,
+      "accepted_lines": 142,
+      "overriden_lines": 0
+    },
+    "dae292a4ab16c3bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa7bc216-4b01-479c-b5c3-4ffcb0d489fe",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 13,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
