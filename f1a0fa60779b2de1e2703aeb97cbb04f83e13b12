@@ -1,0 +1,31 @@
+crates/reckoner-core/src/lint.rs
+  86161ffd9a1361ff 153,171,487-492
+crates/reckoner-cli/src/commands/doctor.rs
+  86161ffd9a1361ff 29,38
+crates/reckoner-core/src/task.rs
+  86161ffd9a1361ff 134,139-141,148-151,157-160,393,400,405,410,483,489
+crates/reckoner-cli/src/commands/lint.rs
+  86161ffd9a1361ff 26-40,45-47,49-66,68,71-72,74,77
+crates/reckoner-core/src/repo.rs
+  86161ffd9a1361ff 34,36-44,218,272-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "f1a0fa60779b2de1e2703aeb97cbb04f83e13b12",
+  "prompts": {
+    "86161ffd9a1361ff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "84e293d9-5186-4f73-893f-287b6c54e883",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Scott Nixon",
+      "messages": [],
+      "total_additions": 87,
+      "total_deletions": 89,
+      "accepted_lines": 87,
+      "overriden_lines": 0
+    }
+  }
+}
