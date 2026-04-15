@@ -24,21 +24,35 @@ pub fn list(config: &Config) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("{:<20} {:<12} {:<30}", "NAME", "BRANCH", "URL");
-    println!("{}", "-".repeat(62));
+    println!("{:<20} {:<12} {:<16} URL", "NAME", "BRANCH", "LAST SYNCED");
+    println!("{}", "-".repeat(78));
     for r in &repos {
-        let _synced = r.last_synced.as_deref().unwrap_or("never");
-        println!("{:<20} {:<12} {}", r.name, r.default_branch, r.url);
+        let synced = r.last_synced.as_deref().unwrap_or("never");
+        println!(
+            "{:<20} {:<12} {:<16} {}",
+            r.name, r.default_branch, synced, r.url
+        );
     }
     Ok(())
 }
 
 pub fn remove(name: &str, config: &Config) -> anyhow::Result<()> {
     let db = Db::open(&config.general.db_path)?;
-    if db.remove_repo(name)? {
-        println!("Removed {}", name);
+
+    // Look up the repo first so we can clean up the bare clone
+    let r = db
+        .get_repo_by_name(name)?
+        .ok_or_else(|| anyhow::anyhow!("repo '{}' not found", name))?;
+    let bare_path = std::path::PathBuf::from(&r.local_path);
+
+    db.remove_repo(name)?;
+
+    // Clean up bare clone on disk
+    if bare_path.exists() {
+        std::fs::remove_dir_all(&bare_path)?;
+        println!("Removed {} (deleted {})", name, bare_path.display());
     } else {
-        anyhow::bail!("repo '{}' not found", name);
+        println!("Removed {}", name);
     }
     Ok(())
 }

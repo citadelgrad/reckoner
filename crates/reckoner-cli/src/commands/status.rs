@@ -10,10 +10,7 @@ pub fn show_all(config: &Config) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!(
-        "{:<14} {:<14} {:<30} CREATED",
-        "TASK", "STATUS", "PROMPT"
-    );
+    println!("{:<14} {:<14} {:<30} CREATED", "TASK", "STATUS", "PROMPT");
     println!("{}", "-".repeat(72));
     for t in &tasks {
         let prompt_short: String = t.prompt.chars().take(28).collect();

@@ -98,10 +98,7 @@ fn load_lintignore(worktree_path: &Path) -> anyhow::Result<GlobSet> {
 }
 
 /// Remove findings whose `file` path matches any pattern in the ignore set.
-fn filter_findings_by_lintignore(
-    findings: Vec<LintFinding>,
-    ignore: &GlobSet,
-) -> Vec<LintFinding> {
+fn filter_findings_by_lintignore(findings: Vec<LintFinding>, ignore: &GlobSet) -> Vec<LintFinding> {
     findings
         .into_iter()
         .filter(|f| !ignore.is_match(&f.file))

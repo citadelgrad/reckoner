@@ -73,6 +73,7 @@ pub fn run(repo_name: &str, config: &Config) -> anyhow::Result<()> {
 
     // Always cleanup, even if linting errored
     let _ = reckoner_core::repo::worktree_remove(&bare_path, &worktree_path);
+    let _ = reckoner_core::repo::branch_delete(&bare_path, &branch);
 
     result
 }

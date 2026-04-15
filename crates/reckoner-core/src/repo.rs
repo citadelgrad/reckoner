@@ -130,6 +130,13 @@ pub fn worktree_remove(bare_path: &Path, worktree_path: &Path) -> anyhow::Result
     Ok(())
 }
 
+/// Delete a branch from the bare repo. Best-effort; logs a warning on failure.
+pub fn branch_delete(bare_path: &Path, branch_name: &str) -> anyhow::Result<()> {
+    tracing::info!(branch = branch_name, "deleting branch");
+    git(bare_path, &["branch", "-D", branch_name])?;
+    Ok(())
+}
+
 /// Generate a branch name for a task.
 pub fn task_branch_name(prefix: &str, task_id: &str, prompt: &str) -> String {
     let slug: String = prompt

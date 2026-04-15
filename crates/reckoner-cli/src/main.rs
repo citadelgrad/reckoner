@@ -202,8 +202,15 @@ async fn main() -> anyhow::Result<()> {
             no_pr,
             keep_worktree,
         } => {
-            commands::task::run(&repo, &prompt, pipeline.as_deref(), !no_pr, keep_worktree, &config)
-                .await?;
+            commands::task::run(
+                &repo,
+                &prompt,
+                pipeline.as_deref(),
+                !no_pr,
+                keep_worktree,
+                &config,
+            )
+            .await?;
         }
         Commands::Status { task_id } => {
             if let Some(id) = task_id {

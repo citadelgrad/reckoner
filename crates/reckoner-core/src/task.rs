@@ -137,13 +137,15 @@ pub async fn run_task(
     // ── 4a. COMMIT + PUSH (always, when there are changes) ───────────
 
     // Track which state the task is in after the lint phase
-    let current_state = if config.linters_enabled() { "linting" } else { "running" };
+    let current_state = if config.linters_enabled() {
+        "linting"
+    } else {
+        "running"
+    };
 
     let committed = if repo::has_changes(&worktree_path)? {
         let commit_msg = format!("reck: {}", prompt);
-        if let Err(e) =
-            repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author)
-        {
+        if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author) {
             tracing::warn!(error = %e, "commit failed");
             fail_task(db_path, &task_id, current_state, &e)?;
             if !opts.keep_worktree {
@@ -171,8 +173,7 @@ pub async fn run_task(
     if opts.create_pr && config.git.auto_pr && committed {
         {
             let db = Db::open(db_path)?;
-            let _ = db.transition_task(&task_id, "linting", "pr_open", None);
-            let _ = db.transition_task(&task_id, "running", "pr_open", None);
+            let _ = db.transition_task(&task_id, current_state, "pr_open", None);
         }
 
         let diff = repo::diffstat(&worktree_path, &r.default_branch).unwrap_or_default();
@@ -211,10 +212,10 @@ pub async fn run_task(
 
     {
         let db = Db::open(db_path)?;
-        // Transition from wherever we are to done
+        // Transition from wherever we are to done — try pr_open first (if we
+        // went through the PR path), then fall back to current_state.
         let _ = db.transition_task(&task_id, "pr_open", "done", None);
-        let _ = db.transition_task(&task_id, "linting", "done", None);
-        let _ = db.transition_task(&task_id, "running", "done", None);
+        let _ = db.transition_task(&task_id, current_state, "done", None);
     }
 
     tracing::info!(task_id, duration_secs = duration, "task completed");

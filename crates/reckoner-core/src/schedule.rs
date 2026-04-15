@@ -35,7 +35,8 @@ pub struct CalendarInterval {
 }
 
 /// Parse a simple cron expression into a CalendarInterval.
-/// Supports: "H M * * *" (daily), "H M * * D" (weekly), "H M D * *" (monthly).
+/// Fields: minute hour day month weekday (standard cron order).
+/// Supports: "M H * * *" (daily), "M H * * D" (weekly), "M H D * *" (monthly).
 pub fn parse_cron(expr: &str) -> anyhow::Result<CalendarInterval> {
     let parts: Vec<&str> = expr.split_whitespace().collect();
     if parts.len() != 5 {
