@@ -18,6 +18,7 @@ pub struct TaskOptions<'a> {
     pub prompt: &'a str,
     pub pipeline: Option<&'a str>,
     pub create_pr: bool,
+    pub keep_worktree: bool,
 }
 
 /// Run a complete task lifecycle.
@@ -116,66 +117,93 @@ pub async fn run_task(
 
     // ── 3. LINT (toolchain + architectural linters + fix loop) ─────────
 
-    if config.linters_enabled() {
+    let lint_result = if config.linters_enabled() {
         let db = Db::open(db_path)?;
         db.transition_task(&task_id, "running", "linting", None)?;
         drop(db);
 
-        run_lint_phase(config, &worktree_path, &logs_path)?;
+        match run_lint_phase(config, &worktree_path, &logs_path) {
+            Ok(result) => result,
+            Err(e) => {
+                fail_task(db_path, &task_id, "linting", &e)?;
+                let _ = repo::worktree_remove(&bare_path, &worktree_path);
+                return Err(e);
+            }
+        }
+    } else {
+        LintPhaseResult {
+            all_passed: true,
+            has_findings: false,
+        }
+    };
 
-        // After linting (which may have auto-fixed things via toolchain format),
-        // transition back. The next phase will pick it up.
-    }
+    // ── 4a. COMMIT + PUSH (always, when there are changes) ───────────
 
-    // ── 4. PR (commit + push + open PR) ──────────────────────────────
+    let committed = if repo::has_changes(&worktree_path)? {
+        let commit_msg = format!("reck: {}", prompt);
+        if let Err(e) =
+            repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author)
+        {
+            tracing::warn!(error = %e, "commit failed");
+            fail_task(db_path, &task_id, "running", &e)?;
+            let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            return Err(e);
+        }
 
-    if opts.create_pr && config.git.auto_pr {
-        if repo::has_changes(&worktree_path)? {
-            {
+        if let Err(e) = repo::push(&worktree_path, &branch_name) {
+            tracing::warn!(error = %e, "push failed");
+            fail_task(db_path, &task_id, "running", &e)?;
+            let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            return Err(e);
+        }
+        true
+    } else {
+        tracing::info!("no changes to commit");
+        false
+    };
+
+    // ── 4b. PR (only when requested + committed) ─────────────────────
+
+    if opts.create_pr && config.git.auto_pr && committed {
+        {
+            let db = Db::open(db_path)?;
+            let _ = db.transition_task(&task_id, "linting", "pr_open", None);
+            let _ = db.transition_task(&task_id, "running", "pr_open", None);
+        }
+
+        let diff = repo::diffstat(&worktree_path, &r.default_branch).unwrap_or_default();
+        let body = repo::pr_body(&task_id, prompt, &diff);
+        let pr_title = format!("{}: {}", config.git.pr_prefix, prompt);
+
+        match repo::create_pr(&worktree_path, &pr_title, &body, &r.default_branch) {
+            Ok(pr_url) => {
+                println!("PR: {}", pr_url);
                 let db = Db::open(db_path)?;
-                // May be coming from "linting" or "running" depending on whether linters ran
-                let _ = db.transition_task(&task_id, "linting", "pr_open", None);
-                let _ = db.transition_task(&task_id, "running", "pr_open", None);
+                db.set_task_pr(&task_id, &pr_url)?;
             }
-
-            let commit_msg = format!("reck: {}", prompt);
-            if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author)
-            {
-                tracing::warn!(error = %e, "commit failed");
-                fail_task(db_path, &task_id, "pr_open", &e)?;
-                let _ = repo::worktree_remove(&bare_path, &worktree_path);
-                return Err(e);
+            Err(e) => {
+                tracing::warn!(error = %e, "PR creation failed (changes are pushed)");
             }
-
-            if let Err(e) = repo::push(&worktree_path, &branch_name) {
-                tracing::warn!(error = %e, "push failed");
-                fail_task(db_path, &task_id, "pr_open", &e)?;
-                let _ = repo::worktree_remove(&bare_path, &worktree_path);
-                return Err(e);
-            }
-
-            let diff = repo::diffstat(&worktree_path, &r.default_branch).unwrap_or_default();
-            let body = repo::pr_body(&task_id, prompt, &diff);
-            let pr_title = format!("{}: {}", config.git.pr_prefix, prompt);
-
-            match repo::create_pr(&worktree_path, &pr_title, &body, &r.default_branch) {
-                Ok(pr_url) => {
-                    println!("PR: {}", pr_url);
-                    let db = Db::open(db_path)?;
-                    db.set_task_pr(&task_id, &pr_url)?;
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "PR creation failed (changes are pushed)");
-                }
-            }
-        } else {
-            tracing::info!("no changes to commit");
         }
     }
 
-    // ── 4. CLEANUP ───────────────────────────────────────────────────
+    // ── 5. CLEANUP ───────────────────────────────────────────────────
 
-    let _ = repo::worktree_remove(&bare_path, &worktree_path);
+    let keep = opts.keep_worktree || lint_result.should_keep_worktree();
+
+    if keep {
+        if lint_result.should_keep_worktree() {
+            tracing::warn!(
+                path = %worktree_path.display(),
+                "keeping worktree: lint-fix loop did not resolve all violations"
+            );
+        } else {
+            tracing::info!(path = %worktree_path.display(), "keeping worktree (--keep-worktree)");
+        }
+        eprintln!("Worktree preserved: {}", worktree_path.display());
+    } else {
+        let _ = repo::worktree_remove(&bare_path, &worktree_path);
+    }
 
     {
         let db = Db::open(db_path)?;
@@ -262,9 +290,29 @@ fn run_on_host(
     Ok(exit_code)
 }
 
+/// Summary of the lint phase, used by run_task for cleanup decisions.
+struct LintPhaseResult {
+    /// True when all architectural lints passed (or none found).
+    all_passed: bool,
+    /// True when there were any architectural lint findings.
+    #[allow(dead_code)]
+    has_findings: bool,
+}
+
+impl LintPhaseResult {
+    /// Whether run_task should preserve the worktree for manual inspection.
+    fn should_keep_worktree(&self) -> bool {
+        !self.all_passed
+    }
+}
+
 /// Run the lint phase: toolchain (format/lint/typecheck) + architectural linters.
-/// Saves results to logs. Does NOT run the fix loop yet (that requires Claude).
-fn run_lint_phase(config: &Config, worktree_path: &Path, logs_path: &Path) -> anyhow::Result<()> {
+/// Saves results to logs and returns a summary for cleanup decisions.
+fn run_lint_phase(
+    config: &Config,
+    worktree_path: &Path,
+    logs_path: &Path,
+) -> anyhow::Result<LintPhaseResult> {
     // 1. Toolchain: format → lint → typecheck
     let tc_config = crate::toolchain::load_toolchain(worktree_path, config.toolchain_defaults());
     if !tc_config.is_empty() {
@@ -341,19 +389,36 @@ fn run_lint_phase(config: &Config, worktree_path: &Path, logs_path: &Path) -> an
                     iterations = fix_result.iterations_run,
                     "lint-fix loop resolved all violations"
                 );
+                return Ok(LintPhaseResult {
+                    all_passed: true,
+                    has_findings: true,
+                });
             } else {
                 tracing::warn!(
                     remaining = fix_result.final_failures,
                     stuck = fix_result.stuck_violations.len(),
                     "lint-fix loop finished with remaining violations"
                 );
+                return Ok(LintPhaseResult {
+                    all_passed: false,
+                    has_findings: true,
+                });
             }
         }
+
+        // Findings exist but all passed (no "fail" status items)
+        return Ok(LintPhaseResult {
+            all_passed: true,
+            has_findings: true,
+        });
     } else {
         tracing::info!("no architectural lint findings");
     }
 
-    Ok(())
+    Ok(LintPhaseResult {
+        all_passed: true,
+        has_findings: false,
+    })
 }
 
 /// Helper to record a failure and transition to failed state.
@@ -366,12 +431,7 @@ fn fail_task(
     let db = Db::open(db_path)?;
     db.set_task_error(task_id, stage, &err.to_string())?;
     // Try the most likely transition; if it fails (wrong from-state), that's ok
-    let from = match stage {
-        "provisioning" => "provisioning",
-        "running" => "running",
-        _ => stage,
-    };
-    let _ = db.transition_task(task_id, from, "failed", Some(&err.to_string()));
+    let _ = db.transition_task(task_id, stage, "failed", Some(&err.to_string()));
     Ok(())
 }
 
@@ -425,6 +485,52 @@ mod tests {
     #[test]
     fn failed_can_retry() {
         assert!(can_transition("failed", "pending"));
+    }
+
+    // ── LintPhaseResult tests ─────────────────────────────────────────
+
+    #[test]
+    fn lint_phase_result_should_keep_when_not_passed() {
+        let r = super::LintPhaseResult {
+            all_passed: false,
+            has_findings: true,
+        };
+        assert!(r.should_keep_worktree());
+    }
+
+    #[test]
+    fn lint_phase_result_no_keep_when_passed() {
+        let r = super::LintPhaseResult {
+            all_passed: true,
+            has_findings: true,
+        };
+        assert!(!r.should_keep_worktree());
+    }
+
+    #[test]
+    fn lint_phase_result_no_keep_when_no_findings() {
+        let r = super::LintPhaseResult {
+            all_passed: true,
+            has_findings: false,
+        };
+        assert!(!r.should_keep_worktree());
+    }
+
+    // ── State transition coverage for new paths ─────────────────────
+
+    #[test]
+    fn linting_to_failed_is_valid_transition() {
+        assert!(can_transition("linting", "failed"));
+    }
+
+    #[test]
+    fn running_to_done_is_valid() {
+        assert!(can_transition("running", "done"));
+    }
+
+    #[test]
+    fn linting_to_done_is_valid() {
+        assert!(can_transition("linting", "done"));
     }
 
     #[test]

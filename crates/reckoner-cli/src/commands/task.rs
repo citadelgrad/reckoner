@@ -6,6 +6,7 @@ pub async fn run(
     prompt: &str,
     pipeline: Option<&str>,
     create_pr: bool,
+    keep_worktree: bool,
     config: &Config,
 ) -> anyhow::Result<()> {
     let opts = TaskOptions {
@@ -13,6 +14,7 @@ pub async fn run(
         prompt,
         pipeline,
         create_pr,
+        keep_worktree,
     };
     let task_id = task::run_task(config, &config.general.db_path, &opts).await?;
     println!("Task {} completed", task_id);

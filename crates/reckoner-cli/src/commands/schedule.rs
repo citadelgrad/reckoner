@@ -60,7 +60,7 @@ pub fn list() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("{:<25} {}", "NAME", "PLIST");
+    println!("{:<25} PLIST", "NAME");
     println!("{}", "-".repeat(60));
     for (name, path) in &schedules {
         println!("{:<25} {}", name, path.display());

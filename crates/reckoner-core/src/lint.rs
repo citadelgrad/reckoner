@@ -1,3 +1,4 @@
+use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -77,6 +78,36 @@ impl LintReport {
     }
 }
 
+/// Load `.lintignore` from the worktree root.
+/// Returns an empty GlobSet if the file does not exist.
+/// Lines starting with `#` and blank lines are ignored.
+fn load_lintignore(worktree_path: &Path) -> anyhow::Result<GlobSet> {
+    let path = worktree_path.join(".lintignore");
+    let mut builder = GlobSetBuilder::new();
+    if path.exists() {
+        let contents = std::fs::read_to_string(&path)?;
+        for line in contents.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            builder.add(Glob::new(trimmed)?);
+        }
+    }
+    Ok(builder.build()?)
+}
+
+/// Remove findings whose `file` path matches any pattern in the ignore set.
+fn filter_findings_by_lintignore(
+    findings: Vec<LintFinding>,
+    ignore: &GlobSet,
+) -> Vec<LintFinding> {
+    findings
+        .into_iter()
+        .filter(|f| !ignore.is_match(&f.file))
+        .collect()
+}
+
 /// Run all linters against a worktree. Discovers built-in linters and
 /// external executables in .reckoner/linters/ and ~/.reckoner/linters/.
 pub fn run_linters(
@@ -84,11 +115,12 @@ pub fn run_linters(
     config: &crate::config::Config,
 ) -> anyhow::Result<LintReport> {
     let mut report = LintReport::default();
+    let ignore = load_lintignore(worktree_path)?;
 
     // Built-in: file-size
     if config.linters_enabled() {
         let max_lines = config.linter_max_lines();
-        let findings = lint_file_size(worktree_path, max_lines)?;
+        let findings = lint_file_size(worktree_path, max_lines, &ignore)?;
         report.findings.extend(findings);
     }
 
@@ -96,8 +128,9 @@ pub fn run_linters(
     let search_dirs = external_linter_dirs(worktree_path, config);
     for dir in search_dirs {
         if dir.exists() {
-            let findings = run_external_linters(&dir, worktree_path)?;
-            report.findings.extend(findings);
+            let raw_findings = run_external_linters(&dir, worktree_path)?;
+            let filtered = filter_findings_by_lintignore(raw_findings, &ignore);
+            report.findings.extend(filtered);
         }
     }
 
@@ -105,7 +138,11 @@ pub fn run_linters(
 }
 
 /// Built-in file-size linter: flag files exceeding max_lines.
-fn lint_file_size(worktree_path: &Path, max_lines: u32) -> anyhow::Result<Vec<LintFinding>> {
+fn lint_file_size(
+    worktree_path: &Path,
+    max_lines: u32,
+    ignore: &GlobSet,
+) -> anyhow::Result<Vec<LintFinding>> {
     let mut findings = Vec::new();
 
     let output = std::process::Command::new("find")
@@ -145,6 +182,15 @@ fn lint_file_size(worktree_path: &Path, max_lines: u32) -> anyhow::Result<Vec<Li
             || path_str.contains("/__pycache__/")
             || path_str.contains("/.venv/")
         {
+            continue;
+        }
+
+        // Apply .lintignore patterns
+        let relative = path
+            .strip_prefix(worktree_path)
+            .unwrap_or(path)
+            .to_string_lossy();
+        if ignore.is_match(relative.as_ref()) {
             continue;
         }
 
@@ -331,7 +377,8 @@ mod tests {
         let big_content = "line\n".repeat(100);
         std::fs::write(dir.path().join("big.rs"), &big_content).unwrap();
 
-        let findings = lint_file_size(dir.path(), 50).unwrap();
+        let ignore = GlobSetBuilder::new().build().unwrap();
+        let findings = lint_file_size(dir.path(), 50, &ignore).unwrap();
         assert_eq!(findings.len(), 1);
         assert!(findings[0].file.contains("big.rs"));
         assert_eq!(findings[0].rule, "file-size");
@@ -347,8 +394,91 @@ mod tests {
         let big = "line\n".repeat(1000);
         std::fs::write(dir.path().join(".git/huge.rs"), &big).unwrap();
 
-        let findings = lint_file_size(dir.path(), 50).unwrap();
+        let ignore = GlobSetBuilder::new().build().unwrap();
+        let findings = lint_file_size(dir.path(), 50, &ignore).unwrap();
         assert!(findings.is_empty());
+    }
+
+    // ── .lintignore tests ─────────────────────────────────────────────
+
+    #[test]
+    fn load_lintignore_returns_empty_set_when_no_file() {
+        let dir = TempDir::new().unwrap();
+        let set = load_lintignore(dir.path()).unwrap();
+        assert!(!set.is_match("anything/file.js"));
+    }
+
+    #[test]
+    fn load_lintignore_parses_patterns() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join(".lintignore"),
+            "# vendor files\nstatic/vendor/**\n\n*.min.js\n",
+        )
+        .unwrap();
+        let set = load_lintignore(dir.path()).unwrap();
+        assert!(set.is_match("static/vendor/jquery/jquery.js"));
+        assert!(set.is_match("static/vendor/bootstrap/bootstrap.js"));
+        assert!(set.is_match("app.min.js"));
+        assert!(!set.is_match("app/views.py"));
+    }
+
+    #[test]
+    fn load_lintignore_ignores_comment_and_blank_lines() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join(".lintignore"),
+            "# this whole file is comments and blanks\n\n   \n# another comment\n",
+        )
+        .unwrap();
+        let set = load_lintignore(dir.path()).unwrap();
+        assert!(!set.is_match("src/main.rs"));
+    }
+
+    #[test]
+    fn external_linter_findings_filtered_by_lintignore() {
+        let findings = vec![
+            LintFinding {
+                rule: "custom-rule".into(),
+                status: "fail".into(),
+                level: "error".into(),
+                file: "static/vendor/select2.js".into(),
+                line: None,
+                message: "too complex".into(),
+                remediation: "refactor".into(),
+                context: serde_json::Value::Null,
+            },
+            LintFinding {
+                rule: "custom-rule".into(),
+                status: "fail".into(),
+                level: "error".into(),
+                file: "src/app.py".into(),
+                line: None,
+                message: "too complex".into(),
+                remediation: "refactor".into(),
+                context: serde_json::Value::Null,
+            },
+        ];
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join(".lintignore"), "static/vendor/**\n").unwrap();
+        let ignore = load_lintignore(dir.path()).unwrap();
+        let filtered = filter_findings_by_lintignore(findings, &ignore);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].file, "src/app.py");
+    }
+
+    #[test]
+    fn file_size_linter_respects_lintignore() {
+        let dir = TempDir::new().unwrap();
+        let big = "line\n".repeat(100);
+        std::fs::create_dir_all(dir.path().join("static/vendor")).unwrap();
+        std::fs::write(dir.path().join("static/vendor/jquery.js"), &big).unwrap();
+        std::fs::write(dir.path().join("big.js"), &big).unwrap();
+        std::fs::write(dir.path().join(".lintignore"), "static/vendor/**\n").unwrap();
+        let ignore = load_lintignore(dir.path()).unwrap();
+        let findings = lint_file_size(dir.path(), 50, &ignore).unwrap();
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].file.contains("big.js"));
     }
 
     #[test]

@@ -11,8 +11,8 @@ pub fn show_all(config: &Config) -> anyhow::Result<()> {
     }
 
     println!(
-        "{:<14} {:<14} {:<30} {}",
-        "TASK", "STATUS", "PROMPT", "CREATED"
+        "{:<14} {:<14} {:<30} CREATED",
+        "TASK", "STATUS", "PROMPT"
     );
     println!("{}", "-".repeat(72));
     for t in &tasks {

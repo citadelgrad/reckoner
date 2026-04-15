@@ -56,6 +56,10 @@ enum Commands {
         /// Skip PR creation (just run and collect logs)
         #[arg(long)]
         no_pr: bool,
+
+        /// Keep the worktree after task completion
+        #[arg(long)]
+        keep_worktree: bool,
     },
 
     /// Show task status
@@ -196,8 +200,10 @@ async fn main() -> anyhow::Result<()> {
             prompt,
             pipeline,
             no_pr,
+            keep_worktree,
         } => {
-            commands::task::run(&repo, &prompt, pipeline.as_deref(), !no_pr, &config).await?;
+            commands::task::run(&repo, &prompt, pipeline.as_deref(), !no_pr, keep_worktree, &config)
+                .await?;
         }
         Commands::Status { task_id } => {
             if let Some(id) = task_id {

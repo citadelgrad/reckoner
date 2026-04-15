@@ -34,13 +34,12 @@ impl ToolResult {
 /// Load toolchain config. Priority: repo-local > global defaults.
 pub fn load_toolchain(worktree_path: &Path, global_defaults: &ToolchainConfig) -> ToolchainConfig {
     let repo_config_path = worktree_path.join(".reckoner/toolchain.toml");
-    if repo_config_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&repo_config_path) {
-            if let Ok(config) = toml::from_str::<ToolchainConfig>(&content) {
-                tracing::info!("loaded repo toolchain config from .reckoner/toolchain.toml");
-                return config;
-            }
-        }
+    if repo_config_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&repo_config_path)
+        && let Ok(config) = toml::from_str::<ToolchainConfig>(&content)
+    {
+        tracing::info!("loaded repo toolchain config from .reckoner/toolchain.toml");
+        return config;
     }
 
     // Fall back to auto-detection + global defaults
