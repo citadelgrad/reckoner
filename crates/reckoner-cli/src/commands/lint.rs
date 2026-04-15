@@ -23,51 +23,56 @@ pub fn run(repo_name: &str, config: &Config) -> anyhow::Result<()> {
         &repo.default_branch,
     )?;
 
-    // Toolchain
-    let tc_config = toolchain::load_toolchain(&worktree_path, config.toolchain_defaults());
-    if !tc_config.is_empty() {
-        println!("Running toolchain...");
-        let results = toolchain::run_toolchain(&worktree_path, &tc_config);
-        for r in &results {
-            let icon = if r.passed() { "  [ok]" } else { "  [FAIL]" };
-            println!("{} {}/{}: {}", icon, r.language, r.phase, r.command);
-            if !r.passed() && !r.stderr.is_empty() {
-                // Show first few lines of stderr
-                for line in r.stderr.lines().take(5) {
-                    println!("       {}", line);
+    // Run linting in a closure so cleanup always happens
+    let result = (|| -> anyhow::Result<()> {
+        // Toolchain
+        let tc_config = toolchain::load_toolchain(&worktree_path, config.toolchain_defaults());
+        if !tc_config.is_empty() {
+            println!("Running toolchain...");
+            let results = toolchain::run_toolchain(&worktree_path, &tc_config);
+            for r in &results {
+                let icon = if r.passed() { "  [ok]" } else { "  [FAIL]" };
+                println!("{} {}/{}: {}", icon, r.language, r.phase, r.command);
+                if !r.passed() && !r.stderr.is_empty() {
+                    // Show first few lines of stderr
+                    for line in r.stderr.lines().take(5) {
+                        println!("       {}", line);
+                    }
                 }
             }
         }
-    }
 
-    // Architectural linters
-    println!("\nRunning architectural linters...");
-    let report = lint::run_linters(&worktree_path, config)?;
+        // Architectural linters
+        println!("\nRunning architectural linters...");
+        let report = lint::run_linters(&worktree_path, config)?;
 
-    if report.findings.is_empty() {
-        println!("  No findings.");
-    } else {
-        for f in &report.findings {
-            let icon = match f.status.as_str() {
-                "fail" => "[FAIL]",
-                "warn" => "[WARN]",
-                _ => "[ ok ]",
-            };
-            print!("  {} [{}] {}", icon, f.rule, f.file);
-            if let Some(line) = f.line {
-                print!(":{}", line);
+        if report.findings.is_empty() {
+            println!("  No findings.");
+        } else {
+            for f in &report.findings {
+                let icon = match f.status.as_str() {
+                    "fail" => "[FAIL]",
+                    "warn" => "[WARN]",
+                    _ => "[ ok ]",
+                };
+                print!("  {} [{}] {}", icon, f.rule, f.file);
+                if let Some(line) = f.line {
+                    print!(":{}", line);
+                }
+                println!();
+                println!("       {}", f.message);
+                if f.status == "fail" {
+                    println!("       Fix: {}", f.remediation);
+                }
             }
-            println!();
-            println!("       {}", f.message);
-            if f.status == "fail" {
-                println!("       Fix: {}", f.remediation);
-            }
+            println!("\n{}", report.summary());
         }
-        println!("\n{}", report.summary());
-    }
 
-    // Cleanup
+        Ok(())
+    })();
+
+    // Always cleanup, even if linting errored
     let _ = reckoner_core::repo::worktree_remove(&bare_path, &worktree_path);
 
-    Ok(())
+    result
 }

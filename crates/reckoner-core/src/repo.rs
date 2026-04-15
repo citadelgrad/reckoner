@@ -31,12 +31,17 @@ fn git_in_cwd(args: &[&str]) -> anyhow::Result<String> {
 /// Extract a repo name from a git URL.
 /// `git@github.com:user/my-repo.git` -> `my-repo`
 /// `https://github.com/user/my-repo.git` -> `my-repo`
+/// `git@github.com:my-repo.git` -> `my-repo`
 pub fn name_from_url(url: &str) -> String {
-    let s = url
-        .rsplit('/')
-        .next()
-        .or_else(|| url.rsplit(':').next())
-        .unwrap_or(url);
+    // Try splitting by '/' first (works for both HTTPS and most SSH URLs),
+    // then fall back to ':' for SSH URLs without a path separator.
+    let s = if url.contains('/') {
+        url.rsplit('/').next().unwrap_or(url)
+    } else if url.contains(':') {
+        url.rsplit(':').next().unwrap_or(url)
+    } else {
+        url
+    };
     s.trim_end_matches(".git").to_string()
 }
 
@@ -210,14 +215,12 @@ pub fn create_pr(
 
 /// Get a short diffstat for the PR body.
 pub fn diffstat(worktree_path: &Path, base_branch: &str) -> anyhow::Result<String> {
-    // Diff against the base branch (origin/base)
+    // Diff against the base branch (origin/base), fall back to last commit
     git(
         worktree_path,
         &["diff", "--stat", &format!("origin/{}", base_branch), "HEAD"],
     )
     .or_else(|_| git(worktree_path, &["diff", "--stat", "HEAD~1", "HEAD"]))
-    .unwrap_or_else(|_| "unable to compute diff".into());
-    git(worktree_path, &["diff", "--stat", "HEAD~1", "HEAD"])
 }
 
 /// Build a structured PR body.
@@ -263,6 +266,11 @@ mod tests {
     #[test]
     fn name_from_url_no_git_suffix() {
         assert_eq!(name_from_url("https://github.com/user/my-repo"), "my-repo");
+    }
+
+    #[test]
+    fn name_from_ssh_url_no_slash() {
+        assert_eq!(name_from_url("git@github.com:my-repo.git"), "my-repo");
     }
 
     #[test]

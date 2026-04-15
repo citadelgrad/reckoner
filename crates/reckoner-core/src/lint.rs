@@ -150,6 +150,7 @@ fn lint_file_size(
             worktree_path.to_str().unwrap_or("."),
             "-type",
             "f",
+            "(",
             "-name",
             "*.rs",
             "-o",
@@ -167,6 +168,7 @@ fn lint_file_size(
             "-o",
             "-name",
             "*.go",
+            ")",
         ])
         .output()?;
 
@@ -479,6 +481,13 @@ mod tests {
         let findings = lint_file_size(dir.path(), 50, &ignore).unwrap();
         assert_eq!(findings.len(), 1);
         assert!(findings[0].file.contains("big.js"));
+    }
+
+    #[test]
+    fn load_lintignore_errors_on_invalid_glob() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join(".lintignore"), "[invalid\n").unwrap();
+        assert!(load_lintignore(dir.path()).is_err());
     }
 
     #[test]

@@ -131,13 +131,13 @@ pub async fn run_task(
             }
         }
     } else {
-        LintPhaseResult {
-            all_passed: true,
-            has_findings: false,
-        }
+        LintPhaseResult { all_passed: true }
     };
 
     // ── 4a. COMMIT + PUSH (always, when there are changes) ───────────
+
+    // Track which state the task is in after the lint phase
+    let current_state = if config.linters_enabled() { "linting" } else { "running" };
 
     let committed = if repo::has_changes(&worktree_path)? {
         let commit_msg = format!("reck: {}", prompt);
@@ -145,15 +145,19 @@ pub async fn run_task(
             repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author)
         {
             tracing::warn!(error = %e, "commit failed");
-            fail_task(db_path, &task_id, "running", &e)?;
-            let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            fail_task(db_path, &task_id, current_state, &e)?;
+            if !opts.keep_worktree {
+                let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            }
             return Err(e);
         }
 
         if let Err(e) = repo::push(&worktree_path, &branch_name) {
             tracing::warn!(error = %e, "push failed");
-            fail_task(db_path, &task_id, "running", &e)?;
-            let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            fail_task(db_path, &task_id, current_state, &e)?;
+            if !opts.keep_worktree {
+                let _ = repo::worktree_remove(&bare_path, &worktree_path);
+            }
             return Err(e);
         }
         true
@@ -294,9 +298,6 @@ fn run_on_host(
 struct LintPhaseResult {
     /// True when all architectural lints passed (or none found).
     all_passed: bool,
-    /// True when there were any architectural lint findings.
-    #[allow(dead_code)]
-    has_findings: bool,
 }
 
 impl LintPhaseResult {
@@ -389,36 +390,24 @@ fn run_lint_phase(
                     iterations = fix_result.iterations_run,
                     "lint-fix loop resolved all violations"
                 );
-                return Ok(LintPhaseResult {
-                    all_passed: true,
-                    has_findings: true,
-                });
+                return Ok(LintPhaseResult { all_passed: true });
             } else {
                 tracing::warn!(
                     remaining = fix_result.final_failures,
                     stuck = fix_result.stuck_violations.len(),
                     "lint-fix loop finished with remaining violations"
                 );
-                return Ok(LintPhaseResult {
-                    all_passed: false,
-                    has_findings: true,
-                });
+                return Ok(LintPhaseResult { all_passed: false });
             }
         }
 
         // Findings exist but all passed (no "fail" status items)
-        return Ok(LintPhaseResult {
-            all_passed: true,
-            has_findings: true,
-        });
+        return Ok(LintPhaseResult { all_passed: true });
     } else {
         tracing::info!("no architectural lint findings");
     }
 
-    Ok(LintPhaseResult {
-        all_passed: true,
-        has_findings: false,
-    })
+    Ok(LintPhaseResult { all_passed: true })
 }
 
 /// Helper to record a failure and transition to failed state.
@@ -491,28 +480,13 @@ mod tests {
 
     #[test]
     fn lint_phase_result_should_keep_when_not_passed() {
-        let r = super::LintPhaseResult {
-            all_passed: false,
-            has_findings: true,
-        };
+        let r = super::LintPhaseResult { all_passed: false };
         assert!(r.should_keep_worktree());
     }
 
     #[test]
     fn lint_phase_result_no_keep_when_passed() {
-        let r = super::LintPhaseResult {
-            all_passed: true,
-            has_findings: true,
-        };
-        assert!(!r.should_keep_worktree());
-    }
-
-    #[test]
-    fn lint_phase_result_no_keep_when_no_findings() {
-        let r = super::LintPhaseResult {
-            all_passed: true,
-            has_findings: false,
-        };
+        let r = super::LintPhaseResult { all_passed: true };
         assert!(!r.should_keep_worktree());
     }
 

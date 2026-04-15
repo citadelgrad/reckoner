@@ -26,6 +26,7 @@ pub fn run(config: &Config) -> anyhow::Result<()> {
         db_exists,
         &config.general.db_path.to_string_lossy(),
     );
+    ok &= db_exists;
 
     // Check repos dir
     let repos_exists = config.general.repos_dir.exists();
@@ -34,6 +35,7 @@ pub fn run(config: &Config) -> anyhow::Result<()> {
         repos_exists,
         &config.general.repos_dir.to_string_lossy(),
     );
+    ok &= repos_exists;
 
     if ok {
         println!("\nAll checks passed.");
