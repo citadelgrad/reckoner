@@ -1,0 +1,31 @@
+crates/reckoner-core/src/task.rs
+  s_ebe7e9faf8f2fa::t_4269da912d1326 15-68,72
+  s_ebe7e9faf8f2fa::t_72faad45b30bcb 208
+  s_ebe7e9faf8f2fa::t_6583bc5cfd7af1 116
+  s_ebe7e9faf8f2fa::t_81860c9c1a70c8 241-242
+  s_ebe7e9faf8f2fa::t_3c2d5f447dd9d3 89-90,100
+crates/reckoner-cli/src/commands/task.rs
+  s_ebe7e9faf8f2fa::t_03399d7fedce7c 2,6,14
+crates/reckoner-cli/src/main.rs
+  s_ebe7e9faf8f2fa::t_bff0c20c89a534 9-50
+  s_ebe7e9faf8f2fa::t_cf305f4db7155b 91
+  s_ebe7e9faf8f2fa::t_07eff35e5bfadd 243-255,257-261
+  s_ebe7e9faf8f2fa::t_eae0619aa77601 3-5,7
+  s_ebe7e9faf8f2fa::t_ae529d0e8c7dea 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "d976c0f93831dbea40ea4fd27c5be667274be9c0",
+  "prompts": {},
+  "sessions": {
+    "s_ebe7e9faf8f2fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97f51778-bedb-419b-9454-8c3904798d64",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Scott Nixon <citadelgrad@gmail.com>"
+    }
+  }
+}
