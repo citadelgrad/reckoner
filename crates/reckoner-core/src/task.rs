@@ -185,6 +185,12 @@ pub async fn run_task(
                 println!("PR: {}", pr_url);
                 let db = Db::open(db_path)?;
                 db.set_task_pr(&task_id, &pr_url)?;
+                // ponytail: convention hook — fire foundry if available, swallow errors
+                let _ = Command::new("foundry")
+                    .arg("run")
+                    .arg("post-feature")
+                    .current_dir(&worktree_path)
+                    .status();
             }
             Err(e) => {
                 tracing::warn!(error = %e, "PR creation failed (changes are pushed)");
