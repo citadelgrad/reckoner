@@ -1,17 +1,19 @@
 # Reckoner
 
-**One command. Prompt to pull request.**
+**One command. Intent to pull request.**
 
-Reckoner is an AI software factory for your terminal. Point it at any git repo, describe what you want in plain English, and walk away. It fetches the latest code, spins up an isolated worktree, runs Claude (or a [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) pipeline), auto-fixes lint violations, and opens a GitHub PR — all without touching your working directory.
+Reckoner is an AI software factory for your terminal. Point it at any git repo, describe what you want — as a prompt, a spec file, or a Beads epic — and walk away. It fetches the latest code, spins up an isolated worktree, runs a [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) pipeline, auto-fixes lint violations, and opens a GitHub PR — all without touching your working directory.
 
 ```sh
-reck task my-project "add user authentication with JWT tokens"
+reck task my-project --prompt "add user authentication with JWT tokens" \
+  --pipeline pipelines/auth.dot
 # → fetches latest code
 # → creates isolated worktree on a fresh branch
-# → runs Claude Code against the worktree
+# → runs PAS pipeline against the worktree
 # → formats, lints, and typechecks the result
 # → auto-fixes any violations (up to 3 iterations)
 # → commits, pushes, opens a PR
+# → checks out the branch in your working clone
 # → tears down the worktree, preserves all logs
 # → PR: https://github.com/user/my-project/pull/42
 ```
@@ -30,7 +32,7 @@ Most AI coding tools check out the full repository for every task. Reckoner stor
 
 ### AI writes the code. Reckoner makes sure it's clean.
 
-After Claude generates changes, Reckoner runs your full toolchain — formatter, linter, typechecker — automatically detected per language. When violations are found, it doesn't just report them. It generates a structured remediation prompt and sends Claude back in to fix them. This lint-fix loop runs up to N iterations, with stuck-violation detection that stops early if the same issue persists across rounds instead of looping forever.
+After PAS generates changes, Reckoner runs your full toolchain — formatter, linter, typechecker — automatically detected per language. When violations are found, it doesn't just report them. It generates a structured remediation prompt and sends the agent back in to fix them. This lint-fix loop runs up to N iterations, with stuck-violation detection that stops early if the same issue persists across rounds instead of looping forever.
 
 Supported toolchains out of the box:
 
@@ -57,30 +59,43 @@ reck schedule add --name nightly-cleanup \
 
 ### Every task is auditable
 
-All output is structured JSONL — Claude's responses, toolchain results, lint findings, fix-loop iterations. Each task gets its own log directory that survives worktree teardown. Query logs locally with [`hl`](https://github.com/pamburus/hl) (auto-detected), or spin up the built-in Grafana + Loki stack with one command:
+All output is structured JSONL — PAS responses, toolchain results, lint findings, fix-loop iterations. Each task gets its own log directory that survives worktree teardown. Query logs locally with [`hl`](https://github.com/pamburus/hl) (auto-detected), or spin up the built-in Grafana + Loki stack with one command:
 
 ```sh
 reck infra up     # Loki + Grafana, ready in seconds
 reck observe      # opens the dashboard
 ```
 
-### No API key juggling
+### Local branch handoff
 
-Reckoner invokes the `claude` CLI directly, which authenticates through macOS Keychain. Your existing Claude subscription is all you need — no environment variables, no key rotation, no token management.
+When a working clone is registered for a repo, Reckoner automatically checks out the PR branch in your local clone after opening the PR — so you can inspect, iterate, or take over without re-pulling from GitHub.
+
+```sh
+reck repo set-working-dir my-project ~/projects/my-project
+# Now every completed task lands on the right branch locally.
+```
+
+### Foundry integration
+
+Reckoner fires a post-PR quality sweep via [Foundry](https://github.com/citadelgrad/foundry) with zero configuration. After opening a PR, it runs `foundry run post-feature` if the `foundry` binary is on PATH. Opt in by defining the profile in your repo's `foundry.yaml`; opt out by not defining it. Reckoner never fails if Foundry isn't installed.
 
 ## Quick Start
 
 ```sh
 cargo install --path crates/reckoner-cli
 
-reck init                                          # Create ~/.reckoner/ dirs + config + db
-reck add git@github.com:user/my-project.git        # Register a repo (bare treeless clone)
-reck task my-project "add user authentication"     # Prompt → PR, fully automated
-reck status                                        # Show active tasks
-reck logs <task-id>                                # View preserved logs
+reck init                                              # Create ~/.reckoner/ dirs + config + db
+reck add git@github.com:user/my-project.git            # Register a repo (bare treeless clone)
+reck repo set-working-dir my-project ~/projects/my-project  # Optional: enable local branch handoff
+reck task my-project --prompt "add user auth" \        # Intent → PR, fully automated
+  --pipeline pipelines/auth.dot
+reck status                                            # Show active tasks
+reck logs <task-id>                                    # View preserved logs
 ```
 
 ## Commands
+
+### Repo management
 
 | Command | What it does |
 |---------|-------------|
@@ -89,18 +104,62 @@ reck logs <task-id>                                # View preserved logs
 | `reck list` | List all registered repos |
 | `reck remove <name>` | Unregister a repo and remove its bare clone |
 | `reck sync <name>` | Fetch latest changes from origin |
-| `reck task <repo> "<prompt>"` | Full pipeline: fetch, worktree, Claude, lint, fix-loop, PR, cleanup |
-| `reck task <repo> "<prompt>" --pipeline <file.dot>` | Use a PAS pipeline instead of direct Claude |
-| `reck task <repo> "<prompt>" --no-pr` | Run without creating a PR (useful for analysis tasks) |
-| `reck lint <repo>` | Standalone toolchain + architectural lint run |
+| `reck repo set-working-dir <name> <path>` | Set the local working clone path for post-PR branch checkout |
+
+### Running tasks
+
+`reck task` accepts one **Intent source** (mutually exclusive) plus a required `--pipeline`:
+
+| Flag | What it does |
+|------|-------------|
+| `--prompt <text>` | Free-form prompt describing the work |
+| `--spec <file>` | Path to a spec markdown file |
+| `--spec <file> --prd <file>` | Spec paired with a PRD for additional business context |
+| `--epic <id>` | Beads epic ID (e.g. `beads-abc`) |
+| `--pipeline <file.dot>` | **Required.** PAS pipeline to execute (use `pas generate` or `pas scaffold` to create one) |
+| `--no-pr` | Run without creating a PR (useful for analysis tasks) |
+| `--keep-worktree` | Preserve the worktree after completion |
+
+> **Note:** Intent-to-pipeline resolution (`--prompt`/`--spec`/`--epic` → auto-generate `.dot`) is coming in a future release. Until then, pass a pre-built `--pipeline` file alongside your Intent source. Use `pas generate <spec.md>` or `pas scaffold <epic-id>` to create one.
+
+**Examples:**
+
+```sh
+# One-off prompt with a pre-built pipeline
+reck task my-project --prompt "fix the login timeout bug" --pipeline pipelines/bugfix.dot
+
+# From a spec file
+reck task my-project --spec docs/auth-spec.md --pipeline pipelines/auth.dot
+
+# From a spec + PRD
+reck task my-project --spec docs/auth-spec.md --prd docs/auth-prd.md --pipeline pipelines/auth.dot
+
+# From a Beads epic
+reck task my-project --epic beads-abc --pipeline pipelines/beads-abc.dot
+
+# Skip PR creation
+reck task my-project --prompt "audit the codebase for N+1 queries" \
+  --pipeline pipelines/audit.dot --no-pr
+```
+
+### Observability and logs
+
+| Command | What it does |
+|---------|-------------|
 | `reck status` | All active tasks in a table |
 | `reck status <task-id>` | Detailed view: branch, PR URL, cost, errors |
 | `reck logs <task-id>` | Summary of all log files for a task |
-| `reck logs <task-id> --app` | View Claude's stdout output |
+| `reck logs <task-id> --app` | View PAS stdout output |
 | `reck logs <task-id> --lint` | View lint findings |
 | `reck logs <task-id> --filter <str>` | Filter log lines by keyword |
-| `reck doctor` | Health checks: git, gh, pas, Docker, API keys, database |
+| `reck lint <repo>` | Standalone toolchain + architectural lint run |
+| `reck doctor` | Health checks: git, gh, pas, Docker, database |
 | `reck config` | Show current configuration |
+
+### Scheduling and infrastructure
+
+| Command | What it does |
+|---------|-------------|
 | `reck schedule add/list/remove/run` | Manage background pipelines (macOS launchd) |
 | `reck infra up/down/status` | Manage observability stack (Loki + Grafana) |
 | `reck observe` | Open Grafana dashboard in browser |
@@ -121,17 +180,29 @@ pending → provisioning → running → linting → pr_open → done
 
 Every state transition is recorded in the database with a timestamp and detail message, so you can reconstruct exactly what happened and when.
 
-**Branch naming:** `reckoner/feat/reck-<id>-<prompt-slug>` — the prompt is slugified and truncated to 5 words. Task IDs look like `reck-a3f7c1d2`.
+**Branch naming:** `reckoner/feat/reck-<id>-<intent-slug>` — the intent label is slugified and truncated. Task IDs look like `reck-a3f7c1d2`.
 
-**PR body:** Auto-generated with a summary (your prompt), a diffstat of changes, the task ID, and a note that human review is required.
+**PR body:** Auto-generated with a summary, a diffstat of changes, the task ID, and a note that human review is required.
+
+**Post-PR steps (in order):**
+1. If `working_dir` is set: `git fetch` + `git checkout <branch>` in your local clone
+2. If `foundry` is on PATH: `foundry run post-feature` (errors swallowed — opt-in via `foundry.yaml`)
 
 ## Architecture
 
-Two Rust crates, clean separation:
+Three layers, clean separation:
+
+| Layer | Tool | Role |
+|-------|------|------|
+| **Engine** | [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) | DOT-based pipeline runner — generates and executes AI workflows |
+| **Factory** | Reckoner (`reck`) | Environment setup: bare clones, worktrees, lint loop, PR, branch handoff |
+| **Platform** | [Foundry](https://github.com/citadelgrad/foundry) | Post-build quality gates: security, docs, custom checks |
+
+Two Rust crates inside Reckoner:
 
 | Crate | Role |
 |-------|------|
-| **reckoner-core** | All business logic: config, SQLite, repo management, task orchestration, lint-fix loop, toolchain detection, container lifecycle, scheduling, observability |
+| **reckoner-core** | All business logic: config, SQLite, repo management, task orchestration, lint-fix loop, toolchain detection, scheduling, observability |
 | **reckoner-cli** | Thin clap CLI binary (`reck`) — parses args, delegates to core |
 
 ### Design decisions
@@ -142,7 +213,8 @@ Two Rust crates, clean separation:
 | **Shell out to `git`/`gh`** | Auth is free (SSH keys, credential managers). No C dependencies from git2/gitoxide |
 | **Bare clones + worktrees** | Shared object store. A 2GB repo stored once serves unlimited concurrent tasks |
 | **JSONL logs on disk** | Zero infrastructure. Queryable with `hl`, `jq`, or the built-in Grafana stack |
-| **Host execution for Claude** | Uses your existing subscription via macOS Keychain. No API key management |
+| **PAS for all execution** | Single execution path — no direct Claude invocation. All Intent resolves to a `.dot` pipeline before anything runs |
+| **Convention-based Foundry hook** | Zero coupling — Reckoner shells out to `foundry` if present. Opt-in by defining the profile; no shared config |
 | **bollard for Docker API** | Pure Rust Docker client for container-based execution (security-hardened: `CAP_DROP ALL`, no-new-privileges, memory/CPU/PID limits) |
 
 ## State
@@ -158,7 +230,7 @@ Everything lives under `~/.reckoner/`:
 ├── worktrees/               # Transient, per-task (cleaned up automatically)
 ├── logs/
 │   └── <task-id>/           # Permanent — survives worktree teardown
-│       ├── stdout.jsonl     # Claude output
+│       ├── stdout.jsonl     # PAS output
 │       ├── stderr.log       # Error output
 │       ├── toolchain.jsonl  # Format/lint/typecheck results
 │       ├── linter.jsonl     # Architectural lint findings
@@ -194,10 +266,10 @@ max_file_lines = 500
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude` on PATH, logged in)
-- [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) (`pas` on PATH) — for pipeline mode
+- [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) (`pas` on PATH) — the execution engine; requires its own Claude/API setup
 - Git, GitHub CLI (`gh`)
 - [OrbStack](https://orbstack.dev/), [Colima](https://github.com/abiosoft/colima), or Docker — for container-based linting and the observability stack
+- [Foundry](https://github.com/citadelgrad/foundry) (`foundry` on PATH) — optional, for post-PR quality gates
 
 ## License
 
