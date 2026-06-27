@@ -1,7 +1,53 @@
 mod commands;
 
-use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+
+use clap::{Args, ArgGroup, Parser, Subcommand};
 use reckoner_core::config::Config;
+use reckoner_core::task::IntentSource;
+
+/// Arguments for `reck task`.
+///
+/// Exactly one intent source must be provided. `--prd` is a supplementary flag
+/// that is only valid alongside `--spec`.
+#[derive(Args)]
+#[command(group(
+    ArgGroup::new("intent")
+        .required(true)
+        .args(["prompt", "spec", "epic"])
+))]
+struct TaskArgs {
+    /// Repo name
+    repo: String,
+
+    /// Free-form prompt to pass directly to claude
+    #[arg(long)]
+    prompt: Option<String>,
+
+    /// Path to a spec file; its contents are sent to claude as the prompt
+    #[arg(long)]
+    spec: Option<PathBuf>,
+
+    /// Path to a PRD file supplying context (only valid with --spec)
+    #[arg(long, requires = "spec")]
+    prd: Option<PathBuf>,
+
+    /// Epic description to use as the prompt
+    #[arg(long)]
+    epic: Option<String>,
+
+    /// Use a specific .dot pipeline file (escape hatch for pre-built pipelines)
+    #[arg(long)]
+    pipeline: Option<String>,
+
+    /// Skip PR creation (just run and collect logs)
+    #[arg(long)]
+    no_pr: bool,
+
+    /// Keep the worktree after task completion
+    #[arg(long)]
+    keep_worktree: bool,
+}
 
 #[derive(Parser)]
 #[command(
@@ -42,25 +88,7 @@ enum Commands {
     },
 
     /// Run a task: provision container, run PAS, collect results
-    Task {
-        /// Repo name
-        repo: String,
-
-        /// Task prompt describing what to do
-        prompt: String,
-
-        /// Use a specific .dot pipeline file
-        #[arg(long)]
-        pipeline: Option<String>,
-
-        /// Skip PR creation (just run and collect logs)
-        #[arg(long)]
-        no_pr: bool,
-
-        /// Keep the worktree after task completion
-        #[arg(long)]
-        keep_worktree: bool,
-    },
+    Task(TaskArgs),
 
     /// Show task status
     Status {
@@ -212,19 +240,25 @@ async fn main() -> anyhow::Result<()> {
         Commands::Sync { name } => {
             commands::repo::sync(&name, &config)?;
         }
-        Commands::Task {
-            repo,
-            prompt,
-            pipeline,
-            no_pr,
-            keep_worktree,
-        } => {
+        Commands::Task(args) => {
+            let intent = if let Some(p) = args.prompt {
+                IntentSource::Prompt(p)
+            } else if let Some(s) = args.spec {
+                IntentSource::Spec {
+                    spec: s,
+                    prd: args.prd,
+                }
+            } else if let Some(e) = args.epic {
+                IntentSource::Epic(e)
+            } else {
+                unreachable!("arg group guarantees one intent source")
+            };
             commands::task::run(
-                &repo,
-                &prompt,
-                pipeline.as_deref(),
-                !no_pr,
-                keep_worktree,
+                &args.repo,
+                intent,
+                args.pipeline.as_deref(),
+                !args.no_pr,
+                args.keep_worktree,
                 &config,
             )
             .await?;
