@@ -93,6 +93,7 @@ static MIGRATIONS: &[M<'static>] = &[
          CREATE INDEX idx_lint_results_repo_task ON lint_results(repo_id, task_id);
          CREATE INDEX idx_schedules_enabled ON schedules(enabled)",
     ),
+    M::up("ALTER TABLE repos ADD COLUMN working_dir TEXT"),
 ];
 
 fn configure_pragmas(conn: &Connection) -> rusqlite::Result<()> {
@@ -153,7 +154,7 @@ impl Db {
 
     pub fn get_repo_by_name(&self, name: &str) -> anyhow::Result<Option<Repo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, url, name, local_path, default_branch, last_synced, created_at
+            "SELECT id, url, name, local_path, default_branch, last_synced, created_at, working_dir
              FROM repos WHERE name = ?1",
         )?;
         let mut rows = stmt.query_map(rusqlite::params![name], |row| {
@@ -165,6 +166,7 @@ impl Db {
                 default_branch: row.get(4)?,
                 last_synced: row.get(5)?,
                 created_at: row.get(6)?,
+                working_dir: row.get(7)?,
             })
         })?;
         match rows.next() {
@@ -176,7 +178,7 @@ impl Db {
 
     pub fn list_repos(&self) -> anyhow::Result<Vec<Repo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, url, name, local_path, default_branch, last_synced, created_at
+            "SELECT id, url, name, local_path, default_branch, last_synced, created_at, working_dir
              FROM repos ORDER BY name",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -188,6 +190,7 @@ impl Db {
                 default_branch: row.get(4)?,
                 last_synced: row.get(5)?,
                 created_at: row.get(6)?,
+                working_dir: row.get(7)?,
             })
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -206,6 +209,14 @@ impl Db {
             [repo_id],
         )?;
         Ok(())
+    }
+
+    pub fn set_repo_working_dir(&self, name: &str, path: &str) -> anyhow::Result<bool> {
+        let changed = self.conn.execute(
+            "UPDATE repos SET working_dir = ?1 WHERE name = ?2",
+            rusqlite::params![path, name],
+        )?;
+        Ok(changed > 0)
     }
 
     // ── Task operations ──────────────────────────────────────────────
@@ -362,6 +373,7 @@ pub struct Repo {
     pub default_branch: String,
     pub last_synced: Option<String>,
     pub created_at: String,
+    pub working_dir: Option<String>,
 }
 
 #[derive(Debug, Clone)]

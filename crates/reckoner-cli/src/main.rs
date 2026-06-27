@@ -115,6 +115,12 @@ enum Commands {
 
     /// Initialize Reckoner (create dirs, default config)
     Init,
+
+    /// Manage registered repos
+    Repo {
+        #[command(subcommand)]
+        action: RepoAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -170,6 +176,17 @@ enum InfraAction {
     Down,
     /// Check observability stack status
     Status,
+}
+
+#[derive(Subcommand)]
+enum RepoAction {
+    /// Set the local working directory for a registered repo (used for post-PR branch checkout)
+    SetWorkingDir {
+        /// Repo name
+        name: String,
+        /// Absolute path to the working directory
+        path: String,
+    },
 }
 
 #[tokio::main]
@@ -297,6 +314,11 @@ async fn main() -> anyhow::Result<()> {
                 println!("Using defaults. Run `reck init` to create one.");
             }
         }
+        Commands::Repo { action } => match action {
+            RepoAction::SetWorkingDir { name, path } => {
+                commands::repo::set_working_dir(&name, &path, &config)?;
+            }
+        },
         Commands::Init => {
             let path = Config::config_path();
             if path.exists() {
