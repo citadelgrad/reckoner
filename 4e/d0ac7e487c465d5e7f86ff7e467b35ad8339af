@@ -1,0 +1,21 @@
+crates/reckoner-core/src/task.rs
+  s_ebe7e9faf8f2fa::t_dfe4ad9587d348 26-28
+  s_ebe7e9faf8f2fa::t_b138d186394475 83-90,98,106,113
+  s_ebe7e9faf8f2fa::t_c252b149307072 231,234,238-250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "4ed0ac7e487c465d5e7f86ff7e467b35ad8339af",
+  "prompts": {},
+  "sessions": {
+    "s_ebe7e9faf8f2fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97f51778-bedb-419b-9454-8c3904798d64",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Scott Nixon <citadelgrad@gmail.com>"
+    }
+  }
+}
