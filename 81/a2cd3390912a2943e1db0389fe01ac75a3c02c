@@ -7,6 +7,7 @@ crates/reckoner-cli/src/commands/repo.rs
   s_ebe7e9faf8f2fa::t_61141bbb90e207 64-74
 crates/reckoner-core/src/task.rs
   s_ebe7e9faf8f2fa::t_a78273138aba52 188-222
+  s_ebe7e9faf8f2fa::t_6bf8b4963bce38 223
 crates/reckoner-core/src/db.rs
   s_ebe7e9faf8f2fa::t_a3352deadebc7a 181,193
   s_ebe7e9faf8f2fa::t_70558dfbb70710 96
