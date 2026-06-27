@@ -1,0 +1,19 @@
+README.md
+  s_ebe7e9faf8f2fa::t_dc765dc8822383 3,5,8-9,12,16,35,62,69,71-80,87-93,98-99,107-148,152,155-156,158-162,183,185-189,193-201,205,216-217,233,269,272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "9e91a49420644b1d4a2d809ba0cd5f38e3362985",
+  "prompts": {},
+  "sessions": {
+    "s_ebe7e9faf8f2fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97f51778-bedb-419b-9454-8c3904798d64",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Scott Nixon <citadelgrad@gmail.com>"
+    }
+  }
+}
