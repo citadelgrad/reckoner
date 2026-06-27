@@ -12,10 +12,64 @@ fn gen_task_id() -> String {
     format!("reck-{}", &id.to_string()[..8])
 }
 
+/// The source of intent driving a task.
+///
+/// Exactly one variant must be provided; `--prd` is only valid alongside `Spec`.
+#[derive(Debug, Clone)]
+pub enum IntentSource {
+    /// A free-form prompt string passed directly to claude.
+    Prompt(String),
+    /// A spec file (optionally paired with a PRD file for additional context).
+    Spec {
+        spec: PathBuf,
+        prd: Option<PathBuf>,
+    },
+    /// An epic description string.
+    Epic(String),
+}
+
+impl IntentSource {
+    /// Short human-readable label used for branch names, commit messages, and DB storage.
+    pub fn label(&self) -> String {
+        match self {
+            IntentSource::Prompt(p) => p.clone(),
+            IntentSource::Spec { spec, .. } => spec
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("spec")
+                .to_string(),
+            IntentSource::Epic(e) => e.clone(),
+        }
+    }
+
+    /// Resolve the intent to a prompt string for passing to claude.
+    ///
+    /// For `Spec` variants this reads the file(s) from disk; the string is used
+    /// only when no `--pipeline` override is present.
+    pub fn resolve_prompt(&self) -> String {
+        match self {
+            IntentSource::Prompt(p) => p.clone(),
+            IntentSource::Epic(e) => e.clone(),
+            IntentSource::Spec { spec, prd: None } => std::fs::read_to_string(spec)
+                .unwrap_or_else(|_| format!("Implement the spec at: {}", spec.display())),
+            IntentSource::Spec {
+                spec,
+                prd: Some(prd_path),
+            } => {
+                let spec_content = std::fs::read_to_string(spec)
+                    .unwrap_or_else(|_| format!("spec: {}", spec.display()));
+                let prd_content = std::fs::read_to_string(prd_path)
+                    .unwrap_or_else(|_| format!("prd: {}", prd_path.display()));
+                format!("{}\n\n---\n\nPRD context:\n{}", spec_content, prd_content)
+            }
+        }
+    }
+}
+
 /// Options for task execution.
 pub struct TaskOptions<'a> {
     pub repo_name: &'a str,
-    pub prompt: &'a str,
+    pub intent: IntentSource,
     pub pipeline: Option<&'a str>,
     pub create_pr: bool,
     pub keep_worktree: bool,
@@ -32,7 +86,8 @@ pub async fn run_task(
     opts: &TaskOptions<'_>,
 ) -> anyhow::Result<String> {
     let task_id = gen_task_id();
-    let prompt = opts.prompt;
+    let intent = &opts.intent;
+    let label = intent.label();
     let repo_name = opts.repo_name;
     tracing::info!(task_id, repo = repo_name, "starting task");
 
@@ -42,7 +97,7 @@ pub async fn run_task(
         .get_repo_by_name(repo_name)?
         .ok_or_else(|| anyhow::anyhow!("repo '{}' not found. Run `reck add` first.", repo_name))?;
 
-    db.insert_task(&task_id, r.id, prompt)?;
+    db.insert_task(&task_id, r.id, &label)?;
     drop(db);
 
     // ── 1. PROVISION ─────────────────────────────────────────────────
@@ -58,7 +113,7 @@ pub async fn run_task(
         return Err(e);
     }
 
-    let branch_name = repo::task_branch_name(&config.git.pr_prefix, &task_id, prompt);
+    let branch_name = repo::task_branch_name(&config.git.pr_prefix, &task_id, &label);
     let worktree_path = match repo::worktree_add(
         &bare_path,
         &config.general.worktrees_dir,
@@ -150,7 +205,7 @@ pub async fn run_task(
     };
 
     let committed = if repo::has_changes(&worktree_path)? {
-        let commit_msg = format!("reck: {}", prompt);
+        let commit_msg = format!("reck: {}", label);
         if let Err(e) = repo::commit_all(&worktree_path, &commit_msg, &config.git.commit_author) {
             tracing::warn!(error = %e, "commit failed");
             fail_task(db_path, &task_id, current_state, &e)?;
@@ -183,8 +238,8 @@ pub async fn run_task(
         }
 
         let diff = repo::diffstat(&worktree_path, &r.default_branch).unwrap_or_default();
-        let body = repo::pr_body(&task_id, prompt, &diff);
-        let pr_title = format!("{}: {}", config.git.pr_prefix, prompt);
+        let body = repo::pr_body(&task_id, &label, &diff);
+        let pr_title = format!("{}: {}", config.git.pr_prefix, label);
 
         match repo::create_pr(&worktree_path, &pr_title, &body, &r.default_branch) {
             Ok(pr_url) => {
