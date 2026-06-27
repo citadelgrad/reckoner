@@ -5,8 +5,7 @@
 Reckoner is an AI software factory for your terminal. Point it at any git repo, describe what you want — as a prompt, a spec file, or a Beads epic — and walk away. It fetches the latest code, spins up an isolated worktree, runs a [PAS](https://github.com/citadelgrad/pascals-discrete-attractor) pipeline, auto-fixes lint violations, and opens a GitHub PR — all without touching your working directory.
 
 ```sh
-reck task my-project --prompt "add user authentication with JWT tokens" \
-  --pipeline pipelines/auth.dot
+reck task my-project --prompt "add user authentication with JWT tokens"
 # → fetches latest code
 # → creates isolated worktree on a fresh branch
 # → runs PAS pipeline against the worktree
@@ -85,10 +84,9 @@ Reckoner fires a post-PR quality sweep via [Foundry](https://github.com/citadelg
 cargo install --path crates/reckoner-cli
 
 reck init                                              # Create ~/.reckoner/ dirs + config + db
-reck add git@github.com:user/my-project.git            # Register a repo (bare treeless clone)
-reck repo set-working-dir my-project ~/projects/my-project  # Optional: enable local branch handoff
-reck task my-project --prompt "add user auth" \        # Intent → PR, fully automated
-  --pipeline pipelines/auth.dot
+reck add git@github.com:user/my-project.git \          # Register a repo (bare treeless clone)
+  --working-dir ~/projects/my-project                   # Optional: set working clone for branch handoff
+reck task my-project --prompt "add user auth"          # Intent → PR, fully automated (pipeline auto-derived)
 reck status                                            # Show active tasks
 reck logs <task-id>                                    # View preserved logs
 ```
@@ -101,14 +99,21 @@ reck logs <task-id>                                    # View preserved logs
 |---------|-------------|
 | `reck init` | Create `~/.reckoner/` directories, default config, and SQLite database |
 | `reck add <git-url>` | Register a repo (bare treeless clone, auto-detects default branch) |
+| `reck add <git-url> --working-dir <path>` | Register and set local working clone in one step |
 | `reck list` | List all registered repos |
 | `reck remove <name>` | Unregister a repo and remove its bare clone |
 | `reck sync <name>` | Fetch latest changes from origin |
-| `reck repo set-working-dir <name> <path>` | Set the local working clone path for post-PR branch checkout |
+| `reck repo set-working-dir <name> <path>` | Update the local working clone path for post-PR branch checkout |
 
 ### Running tasks
 
-`reck task` accepts one **Intent source** (mutually exclusive) plus a required `--pipeline`:
+`reck task` accepts one **Intent source** (mutually exclusive). `--pipeline` is optional — if omitted, Reckoner calls `pas` to auto-derive a `.dot` pipeline from your intent:
+
+| Intent source | Auto-derivation |
+|---------------|----------------|
+| `--prompt <text>` | `pas plan --spec --from-prompt "<text>"` → `pas generate <spec>` |
+| `--spec <file>` | `pas generate <spec>` (add `--prd <file>` for PRD context) |
+| `--epic <id>` | `pas scaffold <epic-id>` |
 
 | Flag | What it does |
 |------|-------------|
@@ -116,30 +121,30 @@ reck logs <task-id>                                    # View preserved logs
 | `--spec <file>` | Path to a spec markdown file |
 | `--spec <file> --prd <file>` | Spec paired with a PRD for additional business context |
 | `--epic <id>` | Beads epic ID (e.g. `beads-abc`) |
-| `--pipeline <file.dot>` | **Required.** PAS pipeline to execute (use `pas generate` or `pas scaffold` to create one) |
+| `--pipeline <file.dot>` | Override auto-derivation with a pre-built `.dot` pipeline |
 | `--no-pr` | Run without creating a PR (useful for analysis tasks) |
 | `--keep-worktree` | Preserve the worktree after completion |
-
-> **Note:** Intent-to-pipeline resolution (`--prompt`/`--spec`/`--epic` → auto-generate `.dot`) is coming in a future release. Until then, pass a pre-built `--pipeline` file alongside your Intent source. Use `pas generate <spec.md>` or `pas scaffold <epic-id>` to create one.
 
 **Examples:**
 
 ```sh
-# One-off prompt with a pre-built pipeline
-reck task my-project --prompt "fix the login timeout bug" --pipeline pipelines/bugfix.dot
+# One-off prompt — pipeline auto-derived via pas plan + pas generate
+reck task my-project --prompt "fix the login timeout bug"
 
-# From a spec file
-reck task my-project --spec docs/auth-spec.md --pipeline pipelines/auth.dot
+# From a spec file — pipeline auto-derived via pas generate
+reck task my-project --spec docs/auth-spec.md
 
 # From a spec + PRD
-reck task my-project --spec docs/auth-spec.md --prd docs/auth-prd.md --pipeline pipelines/auth.dot
+reck task my-project --spec docs/auth-spec.md --prd docs/auth-prd.md
 
-# From a Beads epic
-reck task my-project --epic beads-abc --pipeline pipelines/beads-abc.dot
+# From a Beads epic — pipeline auto-derived via pas scaffold
+reck task my-project --epic beads-abc
 
 # Skip PR creation
-reck task my-project --prompt "audit the codebase for N+1 queries" \
-  --pipeline pipelines/audit.dot --no-pr
+reck task my-project --prompt "audit the codebase for N+1 queries" --no-pr
+
+# Use a pre-built pipeline (escape hatch)
+reck task my-project --prompt "fix login bug" --pipeline pipelines/bugfix.dot
 ```
 
 ### Observability and logs
@@ -213,7 +218,7 @@ Two Rust crates inside Reckoner:
 | **Shell out to `git`/`gh`** | Auth is free (SSH keys, credential managers). No C dependencies from git2/gitoxide |
 | **Bare clones + worktrees** | Shared object store. A 2GB repo stored once serves unlimited concurrent tasks |
 | **JSONL logs on disk** | Zero infrastructure. Queryable with `hl`, `jq`, or the built-in Grafana stack |
-| **PAS for all execution** | Single execution path — no direct Claude invocation. All Intent resolves to a `.dot` pipeline before anything runs |
+| **PAS for all execution** | Single execution path — no direct Claude invocation. All Intent auto-derives a `.dot` pipeline via `pas plan`/`generate`/`scaffold` before anything runs. Pass `--pipeline` to bypass derivation |
 | **Convention-based Foundry hook** | Zero coupling — Reckoner shells out to `foundry` if present. Opt-in by defining the profile; no shared config |
 | **bollard for Docker API** | Pure Rust Docker client for container-based execution (security-hardened: `CAP_DROP ALL`, no-new-privileges, memory/CPU/PID limits) |
 

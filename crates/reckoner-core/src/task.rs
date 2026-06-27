@@ -137,12 +137,24 @@ pub async fn run_task(
 
     // ── 2. RUN (via PAS pipeline) ────────────────────────────────────
 
-    let pipeline = opts.pipeline.ok_or_else(|| {
-        anyhow::anyhow!(
-            "pipeline is required — all Intent must route through PAS; \
-             pass a .dot file via --pipeline"
-        )
-    })?;
+    // If no explicit pipeline is given, auto-derive one from the intent source.
+    // Keep _derived_tmp alive until after run_on_host so the temp directory
+    // (and the .dot file inside it) is not deleted prematurely.
+    let _derived_tmp: Option<tempfile::TempDir>;
+    let pipeline_string: String;
+
+    let pipeline: &str = match opts.pipeline {
+        Some(p) => {
+            _derived_tmp = None;
+            p
+        }
+        None => {
+            let tmp = tempfile::tempdir()?;
+            pipeline_string = derive_pipeline(config, intent, tmp.path())?;
+            _derived_tmp = Some(tmp);
+            &pipeline_string
+        }
+    };
 
     {
         let db = Db::open(db_path)?;
@@ -376,6 +388,105 @@ fn run_on_host(
     }
 
     Ok(exit_code)
+}
+
+/// Auto-derive a pipeline `.dot` file from an `IntentSource` using `pas` subcommands.
+///
+/// `tmp` must be a writable temporary directory. The caller is responsible for
+/// keeping any `TempDir` handle alive until the pipeline file has been consumed.
+fn derive_pipeline(
+    config: &Config,
+    intent: &IntentSource,
+    tmp: &Path,
+) -> anyhow::Result<String> {
+    let pas = &config.pas.binary;
+    let dot_path = tmp.join("pipeline.dot");
+
+    match intent {
+        IntentSource::Prompt(p) => {
+            // Step 1: generate a spec document from the prompt.
+            let spec_path = tmp.join("spec.md");
+            let status = Command::new(pas)
+                .args(["plan", "--spec", "--from-prompt", p, "-o"])
+                .arg(&spec_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("failed to spawn pas plan: {}", e))?;
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "pas plan failed with exit code {}",
+                    status.code().unwrap_or(-1)
+                ));
+            }
+
+            // Step 2: generate the pipeline from the spec.
+            let status = Command::new(pas)
+                .arg("generate")
+                .arg(&spec_path)
+                .arg("-o")
+                .arg(&dot_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("failed to spawn pas generate: {}", e))?;
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "pas generate failed with exit code {}",
+                    status.code().unwrap_or(-1)
+                ));
+            }
+        }
+
+        IntentSource::Spec { spec, prd: None } => {
+            let status = Command::new(pas)
+                .arg("generate")
+                .arg(spec)
+                .arg("-o")
+                .arg(&dot_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("failed to spawn pas generate: {}", e))?;
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "pas generate failed with exit code {}",
+                    status.code().unwrap_or(-1)
+                ));
+            }
+        }
+
+        IntentSource::Spec {
+            spec,
+            prd: Some(prd),
+        } => {
+            let status = Command::new(pas)
+                .args(["generate", "--prd"])
+                .arg(prd)
+                .arg("--spec")
+                .arg(spec)
+                .arg("-o")
+                .arg(&dot_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("failed to spawn pas generate: {}", e))?;
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "pas generate failed with exit code {}",
+                    status.code().unwrap_or(-1)
+                ));
+            }
+        }
+
+        IntentSource::Epic(e) => {
+            let status = Command::new(pas)
+                .args(["scaffold", e, "-o"])
+                .arg(&dot_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("failed to spawn pas scaffold: {}", e))?;
+            if !status.success() {
+                return Err(anyhow::anyhow!(
+                    "pas scaffold failed with exit code {}",
+                    status.code().unwrap_or(-1)
+                ));
+            }
+        }
+    }
+
+    Ok(dot_path.to_string_lossy().into_owned())
 }
 
 /// Summary of the lint phase, used by run_task for cleanup decisions.

@@ -2,7 +2,7 @@ use reckoner_core::config::Config;
 use reckoner_core::db::Db;
 use reckoner_core::repo;
 
-pub fn add(url: &str, config: &Config) -> anyhow::Result<()> {
+pub fn add(url: &str, working_dir: Option<&str>, config: &Config) -> anyhow::Result<()> {
     let bare_path = repo::clone_bare(url, config)?;
     let default_branch = repo::detect_default_branch(&bare_path)?;
     let name = repo::name_from_url(url);
@@ -10,12 +10,20 @@ pub fn add(url: &str, config: &Config) -> anyhow::Result<()> {
     let db = Db::open(&config.general.db_path)?;
     db.insert_repo(url, &name, &bare_path.to_string_lossy(), &default_branch)?;
 
+    if let Some(path) = working_dir {
+        db.set_repo_working_dir(&name, path)?;
+    }
+
     println!("Added {} (branch: {})", name, default_branch);
     println!("  clone: {}", bare_path.display());
-    println!(
-        "  No working directory set. Run: reck repo set-working-dir {} <path>",
-        name
-    );
+    if let Some(path) = working_dir {
+        println!("  working directory: {}", path);
+    } else {
+        println!(
+            "  No working directory set. Run: reck repo set-working-dir {} <path>",
+            name
+        );
+    }
     Ok(())
 }
 

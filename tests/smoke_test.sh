@@ -190,6 +190,43 @@ else
     fail "sync" "did not report 'Synced'"
 fi
 
+# ── 5b. set-working-dir & --working-dir ──────────────────────────────
+
+echo ""
+echo "=== set-working-dir ==="
+
+# set-working-dir on the already-registered upstream repo
+if "$RECK" repo set-working-dir upstream /tmp/fake-workdir 2>&1 | grep -q "Set working directory for upstream"; then
+    pass "repo set-working-dir stores path"
+else
+    fail "repo set-working-dir" "did not confirm path stored"
+fi
+
+# Create a second bare repo to exercise the --working-dir flag on reck add
+TEST_UPSTREAM2="$SMOKE_HOME/upstream2.git"
+git init --bare "$TEST_UPSTREAM2" >/dev/null 2>&1
+TEST_CLONE2="$SMOKE_HOME/clone2"
+git clone "$TEST_UPSTREAM2" "$TEST_CLONE2" >/dev/null 2>&1
+cd "$TEST_CLONE2"
+git config user.name "Test"
+git config user.email "test@test.com"
+echo "# Test Repo 2" > README.md
+git add -A
+git commit -m "initial" >/dev/null 2>&1
+git push origin main >/dev/null 2>&1
+cd - >/dev/null
+
+if "$RECK" add "$TEST_UPSTREAM2" --working-dir /tmp/fake-workdir2 2>&1 | grep -q "working directory: /tmp/fake-workdir2"; then
+    pass "add --working-dir prints working directory"
+else
+    fail "add --working-dir" "did not print 'working directory: /tmp/fake-workdir2'"
+fi
+
+# Clean up the second test repo now; main cleanup handles upstream
+"$RECK" remove upstream2 >/dev/null 2>&1 || true
+
+# TODO: post-PR checkout requires live GitHub — covered by manual test
+
 # ── 6. Status (empty) ────────────────────────────────────────────────
 
 echo ""

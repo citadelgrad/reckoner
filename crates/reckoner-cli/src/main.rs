@@ -70,6 +70,9 @@ enum Commands {
     Add {
         /// Git URL (SSH or HTTPS)
         url: String,
+        /// Local working directory for post-PR branch checkout (optional)
+        #[arg(long)]
+        working_dir: Option<String>,
     },
 
     /// List registered repos
@@ -228,8 +231,8 @@ async fn main() -> anyhow::Result<()> {
     config.ensure_dirs()?;
 
     match cli.command {
-        Commands::Add { url } => {
-            commands::repo::add(&url, &config)?;
+        Commands::Add { url, working_dir } => {
+            commands::repo::add(&url, working_dir.as_deref(), &config)?;
         }
         Commands::List => {
             commands::repo::list(&config)?;

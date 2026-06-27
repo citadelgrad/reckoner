@@ -698,6 +698,59 @@ mod tests {
         assert_eq!(dur, 45);
     }
 
+    // ── Working dir ──────────────────────────────────────────────────
+
+    #[test]
+    fn insert_repo_has_no_working_dir_by_default() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        let repo = db.get_repo_by_name("r").unwrap().unwrap();
+        assert!(
+            repo.working_dir.is_none(),
+            "working_dir should be None immediately after insert"
+        );
+    }
+
+    #[test]
+    fn set_repo_working_dir_stores_path() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("git@github.com:u/r.git", "r", "/tmp/r", "main")
+            .unwrap();
+
+        let found = db
+            .set_repo_working_dir("r", "/home/user/projects/r")
+            .unwrap();
+        assert!(found, "set_repo_working_dir should return true for known repo");
+
+        let repo = db.get_repo_by_name("r").unwrap().unwrap();
+        assert_eq!(
+            repo.working_dir.as_deref(),
+            Some("/home/user/projects/r")
+        );
+    }
+
+    #[test]
+    fn set_repo_working_dir_returns_false_for_missing() {
+        let (_dir, db) = temp_db();
+        let found = db.set_repo_working_dir("ghost", "/any/path").unwrap();
+        assert!(
+            !found,
+            "set_repo_working_dir should return false for unknown repo"
+        );
+    }
+
+    #[test]
+    fn set_repo_working_dir_can_be_updated() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+
+        db.set_repo_working_dir("r", "/first/path").unwrap();
+        db.set_repo_working_dir("r", "/second/path").unwrap();
+
+        let repo = db.get_repo_by_name("r").unwrap().unwrap();
+        assert_eq!(repo.working_dir.as_deref(), Some("/second/path"));
+    }
+
     // ── DB file permissions ──────────────────────────────────────────
 
     #[cfg(unix)]
