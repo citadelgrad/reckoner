@@ -23,9 +23,9 @@ pub struct TaskOptions<'a> {
 
 /// Run a complete task lifecycle.
 ///
-/// Local mode: runs claude/pas on the HOST (uses Claude subscription auth).
-/// The worktree provides file isolation. If `create_pr` is true, commits
-/// changes, pushes the branch, and opens a PR via `gh`.
+/// Provisions a git worktree, runs the PAS pipeline via `pas run`, then
+/// lints, commits, and optionally opens a PR. `opts.pipeline` must be a
+/// path to a `.dot` file — direct Claude invocation is not supported.
 pub async fn run_task(
     config: &Config,
     db_path: &Path,
@@ -34,7 +34,6 @@ pub async fn run_task(
     let task_id = gen_task_id();
     let prompt = opts.prompt;
     let repo_name = opts.repo_name;
-    let pipeline = opts.pipeline;
     tracing::info!(task_id, repo = repo_name, "starting task");
 
     // Look up the repo
@@ -81,7 +80,14 @@ pub async fn run_task(
         db.set_task_branch(&task_id, &branch_name)?;
     }
 
-    // ── 2. RUN (on host, using Claude subscription) ──────────────────
+    // ── 2. RUN (via PAS pipeline) ────────────────────────────────────
+
+    let pipeline = opts.pipeline.ok_or_else(|| {
+        anyhow::anyhow!(
+            "pipeline is required — all Intent must route through PAS; \
+             pass a .dot file via --pipeline"
+        )
+    })?;
 
     {
         let db = Db::open(db_path)?;
@@ -89,7 +95,7 @@ pub async fn run_task(
     }
 
     let start_time = Instant::now();
-    let run_result = run_on_host(config, prompt, pipeline, &worktree_path, &logs_path);
+    let run_result = run_on_host(config, pipeline, &worktree_path, &logs_path);
     let duration = start_time.elapsed().as_secs() as i64;
 
     let _exit_code = match run_result {
@@ -97,14 +103,14 @@ pub async fn run_task(
             let db = Db::open(db_path)?;
             let run_id = db.insert_run(
                 &task_id,
-                pipeline.unwrap_or("direct"),
+                pipeline,
                 &logs_path.to_string_lossy(),
             )?;
             let status = if code == 0 { "success" } else { "partial" };
             db.finish_run(run_id, status, 0.0, duration)?;
 
             if code != 0 {
-                tracing::warn!(code, "claude/pas exited with non-zero code");
+                tracing::warn!(code, "pas exited with non-zero code");
             }
             code
         }
@@ -264,46 +270,26 @@ pub async fn run_task(
     Ok(task_id)
 }
 
-/// Run claude or pas on the HOST against the worktree.
-/// This uses the local Claude subscription — no API key needed.
+/// Run `pas run <pipeline>` on the HOST against the worktree.
 fn run_on_host(
     config: &Config,
-    prompt: &str,
-    pipeline: Option<&str>,
+    pipeline: &str,
     worktree_path: &Path,
     logs_path: &Path,
 ) -> anyhow::Result<i32> {
-    let (program, args) = if let Some(dot_file) = pipeline {
-        let budget = config.pas.default_max_budget_usd.to_string();
-        let max_steps = config.pas.default_max_steps.to_string();
-        (
-            config.pas.binary.clone(),
-            vec![
-                "run".into(),
-                dot_file.into(),
-                "--workdir".into(),
-                worktree_path.to_string_lossy().into(),
-                "--max-budget-usd".into(),
-                budget,
-                "--max-steps".into(),
-                max_steps,
-            ],
-        )
-    } else {
-        (
-            "claude".into(),
-            vec![
-                "-p".into(),
-                prompt.into(),
-                "--output-format".into(),
-                "json".into(),
-                "--model".into(),
-                config.pas.default_model.clone(),
-                "--no-session-persistence".into(),
-                "--dangerously-skip-permissions".into(),
-            ],
-        )
-    };
+    let budget = config.pas.default_max_budget_usd.to_string();
+    let max_steps = config.pas.default_max_steps.to_string();
+    let program = config.pas.binary.clone();
+    let args = vec![
+        "run".into(),
+        pipeline.into(),
+        "--workdir".into(),
+        worktree_path.to_string_lossy().into(),
+        "--max-budget-usd".into(),
+        budget,
+        "--max-steps".into(),
+        max_steps,
+    ];
 
     tracing::info!(program, args = ?args, workdir = %worktree_path.display(), "running on host");
 
