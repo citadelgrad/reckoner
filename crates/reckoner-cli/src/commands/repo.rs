@@ -12,6 +12,10 @@ pub fn add(url: &str, config: &Config) -> anyhow::Result<()> {
 
     println!("Added {} (branch: {})", name, default_branch);
     println!("  clone: {}", bare_path.display());
+    println!(
+        "  No working directory set. Run: reck repo set-working-dir {} <path>",
+        name
+    );
     Ok(())
 }
 
@@ -53,6 +57,17 @@ pub fn remove(name: &str, config: &Config) -> anyhow::Result<()> {
         println!("Removed {} (deleted {})", name, bare_path.display());
     } else {
         println!("Removed {}", name);
+    }
+    Ok(())
+}
+
+pub fn set_working_dir(name: &str, path: &str, config: &Config) -> anyhow::Result<()> {
+    let db = Db::open(&config.general.db_path)?;
+    let found = db.set_repo_working_dir(name, path)?;
+    if found {
+        println!("Set working directory for {} to {}", name, path);
+    } else {
+        anyhow::bail!("repo '{}' not found", name);
     }
     Ok(())
 }

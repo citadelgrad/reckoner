@@ -185,6 +185,42 @@ pub async fn run_task(
                 println!("PR: {}", pr_url);
                 let db = Db::open(db_path)?;
                 db.set_task_pr(&task_id, &pr_url)?;
+
+                // Post-PR branch handoff: if a working_dir is configured, fetch
+                // and check out the branch so the developer can inspect it locally.
+                if let Some(ref working_dir) = r.working_dir {
+                    let fetch_ok = Command::new("git")
+                        .args(["-C", working_dir, "fetch"])
+                        .status()
+                        .map(|s| s.success())
+                        .unwrap_or(false);
+                    if fetch_ok {
+                        let checkout_ok = Command::new("git")
+                            .args(["-C", working_dir, "checkout", &branch_name])
+                            .status()
+                            .map(|s| s.success())
+                            .unwrap_or(false);
+                        if !checkout_ok {
+                            tracing::warn!(
+                                branch = %branch_name,
+                                working_dir = %working_dir,
+                                "post-PR checkout failed"
+                            );
+                        } else {
+                            tracing::info!(
+                                branch = %branch_name,
+                                working_dir = %working_dir,
+                                "checked out branch in working directory"
+                            );
+                        }
+                    } else {
+                        tracing::warn!(
+                            working_dir = %working_dir,
+                            "post-PR git fetch failed"
+                        );
+                    }
+                }
+
                 // ponytail: convention hook — fire foundry if available, swallow errors
                 let _ = Command::new("foundry")
                     .arg("run")
