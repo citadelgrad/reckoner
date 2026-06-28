@@ -708,4 +708,22 @@ mod tests {
         assert_eq!(parse_memory("512m"), Some(512 * 1024 * 1024));
         assert_eq!(parse_memory("1073741824"), Some(1073741824));
     }
+
+    #[test]
+    fn unknown_from_state_is_not_transitionable() {
+        assert!(!can_transition("unknown_state", "done"));
+        assert!(!can_transition("", "running"));
+    }
+
+    #[test]
+    fn pending_can_be_directly_failed() {
+        assert!(can_transition("pending", "failed"));
+    }
+
+    #[test]
+    fn task_id_has_correct_format() {
+        let id = super::gen_task_id();
+        assert!(id.starts_with("reck-"), "task id must start with reck-");
+        assert_eq!(id.len(), 13, "reck- (5 chars) + 8 hex chars = 13");
+    }
 }

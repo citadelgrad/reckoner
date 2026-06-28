@@ -762,4 +762,21 @@ mod tests {
         let mode = std::fs::metadata(&db_path).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o600);
     }
+
+    #[test]
+    fn insert_run_starts_with_running_status() {
+        let (_dir, db) = temp_db();
+        db.insert_repo("url", "r", "/r", "main").unwrap();
+        db.insert_task("reck-r", 1, "run status test").unwrap();
+        let run_id = db.insert_run("reck-r", "pipeline.dot", "/logs").unwrap();
+        let status: String = db
+            .conn()
+            .query_row(
+                "SELECT status FROM runs WHERE id = ?1",
+                [run_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(status, "running");
+    }
 }

@@ -297,6 +297,8 @@ mod tests {
         assert!(cfg.general.repos_dir.ends_with(".reckoner/repos"));
         assert_eq!(cfg.container.default_cpus, 4);
         assert_eq!(cfg.pas.default_model, "sonnet");
+        assert!(cfg.pas.default_max_budget_usd > 0.0);
+        assert!(cfg.pas.default_max_steps > 0);
     }
 
     #[test]
