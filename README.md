@@ -258,6 +258,7 @@ logs_dir = "~/.reckoner/logs"
 binary = "pas"
 default_model = "sonnet"
 default_max_budget_usd = 10.0
+default_max_steps = 200
 
 [git]
 auto_pr = true
