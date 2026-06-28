@@ -1,0 +1,23 @@
+README.md
+  s_da0c1acd0e9d39::t_3a165b125a25fb 261
+Cargo.toml
+  s_da0c1acd0e9d39::t_44da5edf0fadcb 9
+Cargo.lock
+  s_da0c1acd0e9d39::t_a7a02d50bc6069 1036,1052
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "6ba6cec328827f15deb47be92f06b48efd58f872",
+  "prompts": {},
+  "sessions": {
+    "s_da0c1acd0e9d39": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc4c4743-6149-4e66-b97e-de51b7656499",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Scott Nixon <citadelgrad@gmail.com>"
+    }
+  }
+}
